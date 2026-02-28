@@ -1,0 +1,9 @@
+# Install dependencies with:
+# pip install -r requirements.txt
+
+django
+djangorestframework
+mysqlclient
+djangorestframework-simplejwt
+pillow
+python-dotenv
