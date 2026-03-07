@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../services/auth_service.dart';
 import '../../services/storage_service.dart';
+import 'models/auth_user.dart';
 
 class AuthProvider extends ChangeNotifier {
   AuthProvider({
@@ -16,6 +17,7 @@ class AuthProvider extends ChangeNotifier {
 
   bool isLoading = false;
   String? errorMessage;
+  AuthUser? currentUser;
 
   Future<bool> login(String identifier, String password) async {
     isLoading = true;
@@ -36,6 +38,7 @@ class AuthProvider extends ChangeNotifier {
       }
 
       await _storageService.saveToken(accessToken);
+      currentUser = _buildUserFromIdentifier(identifier);
       return true;
     } on DioException catch (e) {
       final dynamic responseData = e.response?.data;
@@ -63,6 +66,12 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       await _authService.register(userData);
+      currentUser = AuthUser(
+        fullName: userData['full_name']?.toString() ?? 'Wild Cat User',
+        username: userData['username']?.toString() ?? '',
+        email: userData['email']?.toString() ?? 'user@example.com',
+        designation: userData['designation']?.toString() ?? 'Community Member',
+      );
       return true;
     } on DioException catch (e) {
       final dynamic responseData = e.response?.data;
@@ -81,5 +90,22 @@ class AuthProvider extends ChangeNotifier {
       isLoading = false;
       notifyListeners();
     }
+  }
+
+  Future<void> logout() async {
+    await _storageService.clearToken();
+    currentUser = null;
+    errorMessage = null;
+    notifyListeners();
+  }
+
+  AuthUser _buildUserFromIdentifier(String identifier) {
+    final bool isEmail = identifier.contains('@');
+    return AuthUser(
+      fullName: 'Wild Cat User',
+      username: isEmail ? identifier.split('@').first : identifier,
+      email: isEmail ? identifier : 'Not available',
+      designation: 'Community Member',
+    );
   }
 }

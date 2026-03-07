@@ -7,3 +7,4 @@ mysqlclient
 djangorestframework-simplejwt
 pillow
 python-dotenv
+firebase-admin
