@@ -37,6 +37,8 @@ dependencies:
   dio: ^5.9.0
   flutter_secure_storage: ^9.2.4
   provider: ^6.1.5
+  image_picker: ^1.1.2
+  geolocator: ^13.0.2
 
 dev_dependencies:
   flutter_test:

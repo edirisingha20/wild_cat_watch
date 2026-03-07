@@ -13,10 +13,18 @@ class LeopardSighting(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     latitude = models.FloatField()
     longitude = models.FloatField()
+    location_name = models.CharField(max_length=255)
     image = models.ImageField(upload_to='sightings/')
-    description = models.TextField(blank=True)
+    description = models.TextField()
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['latitude']),
+            models.Index(fields=['longitude']),
+            models.Index(fields=['created_at']),
+        ]
 
     def __str__(self):
         return f"Sighting #{self.pk} by {self.user} ({self.status})"

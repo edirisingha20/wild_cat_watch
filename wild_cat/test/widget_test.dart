@@ -9,5 +9,6 @@ void main() {
     expect(find.text('Login'), findsNWidgets(2));
     expect(find.text('Email or Username'), findsOneWidget);
     expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Go to Register'), findsOneWidget);
   });
 }
