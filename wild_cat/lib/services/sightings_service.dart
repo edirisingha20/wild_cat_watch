@@ -22,6 +22,27 @@ class SightingsService {
         .toList();
   }
 
+  Future<List<Alert>> fetchNearbySightings({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final response = await _api.dio.get(
+      'sightings/nearby/',
+      queryParameters: <String, dynamic>{
+        'lat': latitude,
+        'lng': longitude,
+      },
+    );
+
+    final List<dynamic> data = response.data as List<dynamic>;
+    return data
+        .map(
+          (dynamic json) =>
+              Alert.fromJson(Map<String, dynamic>.from(json as Map)),
+        )
+        .toList();
+  }
+
   Future<void> reportSighting({
     required String description,
     required double latitude,

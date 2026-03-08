@@ -27,6 +27,18 @@ class LeopardSightingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Longitude must be between -180 and 180.')
         return value
 
+    def validate_image(self, value):
+        max_size = 5 * 1024 * 1024
+        if value.size > max_size:
+            raise serializers.ValidationError('Image must be less than 5MB')
+
+        valid_types = ['image/jpeg', 'image/png']
+        content_type = getattr(value, 'content_type', None)
+        if content_type not in valid_types:
+            raise serializers.ValidationError('Invalid image format')
+
+        return value
+
 
 class NearbyLeopardSightingSerializer(LeopardSightingSerializer):
     distance_km = serializers.SerializerMethodField()

@@ -14,11 +14,23 @@ class StorageService {
     await _storage.write(key: _accessTokenKey, value: token);
   }
 
+  Future<void> saveAccessToken(String token) async {
+    await saveToken(token);
+  }
+
   Future<String?> getToken() async {
     return _storage.read(key: _accessTokenKey);
   }
 
+  Future<String?> getAccessToken() async {
+    return getToken();
+  }
+
   Future<void> clearToken() async {
     await _storage.delete(key: _accessTokenKey);
+  }
+
+  Future<void> clearAccessToken() async {
+    await clearToken();
   }
 }
