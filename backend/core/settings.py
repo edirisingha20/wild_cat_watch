@@ -139,6 +139,19 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '50/day',
+        'user': '500/day',
+        'report_sighting': '10/hour',
+    },
 }
 
 AUTH_USER_MODEL = 'users.User'
+
+# Firebase Admin credentials path (optional). If not set, notifications/firebase.py
+# falls back to BASE_DIR / 'firebase_service_account.json'.
+FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '').strip() or None

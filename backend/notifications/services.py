@@ -1,49 +1,24 @@
 import logging
-import math
 
 from django.conf import settings
 
-from sightings.models import DeviceToken, UserLocation
+from .firebase import initialize_firebase
+from core.utils.geo import calculate_distance
+from sightings.selectors.sighting_selectors import get_device_tokens, get_user_locations
 
 logger = logging.getLogger(__name__)
 
 
-def _haversine_distance_km(lat1, lng1, lat2, lng2):
-    earth_radius_km = 6371.0
-    lat1_rad = math.radians(lat1)
-    lng1_rad = math.radians(lng1)
-    lat2_rad = math.radians(lat2)
-    lng2_rad = math.radians(lng2)
-
-    dlat = lat2_rad - lat1_rad
-    dlng = lng2_rad - lng1_rad
-
-    a = (
-        math.sin(dlat / 2) ** 2
-        + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlng / 2) ** 2
-    )
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-    return earth_radius_km * c
-
-
-def _send_fcm_notification(token, payload):
+def send_push_notification(token, title, body, data=None):
     try:
+        app = initialize_firebase()
+        if app is None:
+            return False
         from firebase_admin import messaging
-    except ImportError:
-        logger.warning(
-            'firebase-admin is not installed; skipping FCM notification for token=%s',
-            token,
-        )
-        return False
-
-    try:
         message = messaging.Message(
             token=token,
-            notification=messaging.Notification(
-                title=payload['title'],
-                body=payload['body'],
-            ),
-            data={'sighting_id': str(payload['sighting_id'])},
+            notification=messaging.Notification(title=title, body=body),
+            data=data or {},
         )
         messaging.send(message)
         return True
@@ -54,8 +29,8 @@ def _send_fcm_notification(token, payload):
 
 def send_nearby_alert(sighting):
     radius_km = float(getattr(settings, 'NEARBY_SIGHTING_RADIUS_KM', 5))
-    user_locations = UserLocation.objects.select_related('user')
-    device_tokens = DeviceToken.objects.select_related('user')
+    user_locations = get_user_locations()
+    device_tokens = get_device_tokens()
 
     token_by_user_id = {}
     for device_token in device_tokens:
@@ -69,7 +44,7 @@ def send_nearby_alert(sighting):
 
     sent_count = 0
     for user_location in user_locations:
-        distance = _haversine_distance_km(
+        distance = calculate_distance(
             user_location.latitude,
             user_location.longitude,
             sighting.latitude,
@@ -80,7 +55,12 @@ def send_nearby_alert(sighting):
             continue
 
         for token in token_by_user_id.get(user_location.user_id, []):
-            if _send_fcm_notification(token, payload):
+            if send_push_notification(
+                token=token,
+                title=payload['title'],
+                body=payload['body'],
+                data={'sighting_id': str(payload['sighting_id'])},
+            ):
                 sent_count += 1
 
     logger.info(

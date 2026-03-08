@@ -8,6 +8,7 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/sightings/report_sighting_screen.dart';
 import '../../services/location_api_service.dart';
 import '../../services/location_service.dart';
+import '../../services/notification_service.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key, this.initialIndex = 0});
@@ -21,6 +22,7 @@ class MainNavigationScreen extends StatefulWidget {
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final LocationService _locationService = LocationService();
   final LocationApiService _locationApiService = LocationApiService();
+  final NotificationService _notificationService = NotificationService();
 
   late int _currentIndex;
 
@@ -37,6 +39,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _updateUserLocationOnEntry();
+      _registerDeviceTokenOnEntry();
     });
   }
 
@@ -104,6 +107,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       }
     } catch (_) {
       _showMessage('Failed to update user location');
+    }
+  }
+
+  Future<void> _registerDeviceTokenOnEntry() async {
+    try {
+      await _notificationService.registerDeviceTokenToBackend();
+    } on DioException catch (e) {
+      final dynamic data = e.response?.data;
+      if (data is Map<String, dynamic>) {
+        _showMessage(
+          data['detail']?.toString() ??
+              data['error']?.toString() ??
+              'Failed to register notification token',
+        );
+      } else {
+        _showMessage('Failed to register notification token');
+      }
+    } catch (_) {
+      _showMessage('Failed to register notification token');
     }
   }
 
