@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -10,6 +12,11 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const WildCatWatchApp());
+  unawaited(_initializeNotifications());
+}
+
+Future<void> _initializeNotifications() async {
   final NotificationService notificationService = NotificationService();
 
   try {
@@ -28,8 +35,6 @@ Future<void> main() async {
     // FCM setup should not block app startup in non-configured environments.
     debugPrint('FCM initialization skipped: $e');
   }
-
-  runApp(const WildCatWatchApp());
 }
 
 class WildCatWatchApp extends StatelessWidget {
@@ -43,6 +48,14 @@ class WildCatWatchApp extends StatelessWidget {
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
         title: 'Wild Cat Watch',
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF2E7D32),
+            brightness: Brightness.light,
+          ),
+          scaffoldBackgroundColor: Colors.white,
+        ),
         home: const SplashScreen(),
       ),
     );
