@@ -1,3 +1,5 @@
+import math
+
 from core.utils.geo import calculate_distance
 
 from sightings.models import DeviceToken, LeopardSighting, UserLocation
@@ -11,11 +13,32 @@ def get_recent_sightings():
     return get_all_sightings().order_by('-created_at')
 
 
+def _bounding_box(latitude, longitude, radius_km):
+    """Return (min_lat, max_lat, min_lng, max_lng) for a rough bounding box."""
+    delta_lat = radius_km / 111.0
+    delta_lng = radius_km / (111.0 * max(math.cos(math.radians(latitude)), 0.001))
+    return (
+        latitude - delta_lat,
+        latitude + delta_lat,
+        longitude - delta_lng,
+        longitude + delta_lng,
+    )
+
+
 def get_nearby_sightings(latitude, longitude, radius_km):
+    min_lat, max_lat, min_lng, max_lng = _bounding_box(latitude, longitude, radius_km)
+
+    candidates = get_all_sightings().filter(
+        latitude__gte=min_lat,
+        latitude__lte=max_lat,
+        longitude__gte=min_lng,
+        longitude__lte=max_lng,
+    )
+
     sightings_with_distance = []
     distance_map = {}
 
-    for sighting in get_all_sightings():
+    for sighting in candidates:
         distance = calculate_distance(
             latitude,
             longitude,

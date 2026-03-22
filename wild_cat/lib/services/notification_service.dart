@@ -1,12 +1,11 @@
 import 'dart:async';
 
-import 'package:dio/dio.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 
+import '../firebase_options.dart';
 import 'api_service.dart';
-import 'storage_service.dart';
 
 class NotificationService {
   NotificationService._internal();
@@ -16,17 +15,20 @@ class NotificationService {
   factory NotificationService() => _instance;
 
   final ApiService _apiService = ApiService();
-  final StorageService _storageService = StorageService();
 
-  Future<void> initializeFirebase() async {
+  /// Ensures Firebase is initialized. Safe to call multiple times.
+  /// In normal flow, Firebase.initializeApp is already called in main().
+  Future<void> _ensureFirebaseInitialized() async {
     if (Firebase.apps.isNotEmpty) {
       return;
     }
-    await Firebase.initializeApp();
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
   }
 
   Future<NotificationSettings> requestNotificationPermission() async {
-    await initializeFirebase();
+    await _ensureFirebaseInitialized();
     return FirebaseMessaging.instance.requestPermission(
       alert: true,
       announcement: false,
@@ -39,16 +41,11 @@ class NotificationService {
   }
 
   Future<String?> getDeviceToken() async {
-    await initializeFirebase();
+    await _ensureFirebaseInitialized();
     return FirebaseMessaging.instance.getToken();
   }
 
   Future<void> registerDeviceTokenToBackend({int maxAttempts = 3}) async {
-    final String? authToken = await _storageService.getToken();
-    if (authToken == null || authToken.isEmpty) {
-      return;
-    }
-
     String? deviceToken;
     Object? lastError;
 
@@ -78,11 +75,6 @@ class NotificationService {
     await _apiService.dio.post(
       'users/device-token/',
       data: <String, dynamic>{'token': deviceToken},
-      options: Options(
-        headers: <String, String>{
-          'Authorization': 'Bearer $authToken',
-        },
-      ),
     );
   }
 

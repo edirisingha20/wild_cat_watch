@@ -38,12 +38,19 @@ def create_sighting(user, description, latitude, longitude, image, location_name
             image=image,
             location_name=location_name,
         )
-        send_nearby_alerts(sighting)
-        return sighting
-    except SightingServiceError:
-        raise
     except Exception as exc:
         raise SightingServiceError(f'Failed to create sighting: {exc}') from exc
+
+    # Notification failure must not break the sighting creation.
+    try:
+        send_nearby_alerts(sighting)
+    except Exception:
+        logger.exception(
+            'Notification dispatch failed for sighting_id=%s (sighting was saved)',
+            sighting.id,
+        )
+
+    return sighting
 
 
 def get_recent_sightings():
@@ -57,11 +64,4 @@ def get_nearby_sightings(latitude, longitude):
 
 
 def send_nearby_alerts(sighting):
-    try:
-        return send_nearby_alert(sighting)
-    except Exception as exc:
-        logger.exception(
-            'Failed sending nearby alerts for sighting_id=%s',
-            sighting.id,
-        )
-        raise SightingServiceError('Failed to send nearby alerts.') from exc
+    return send_nearby_alert(sighting)
