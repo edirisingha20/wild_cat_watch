@@ -14,13 +14,34 @@ class AlertDetailsScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Alert Details')),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(alert.description),
-            const SizedBox(height: 8),
+            if (alert.image != null && alert.image!.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: Image.network(
+                  alert.image!,
+                  width: double.infinity,
+                  height: 220,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: double.infinity,
+                    height: 220,
+                    color: Colors.grey.shade200,
+                    alignment: Alignment.center,
+                    child: const Text('Image not available'),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 16),
+            Text(
+              alert.description,
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 12),
             Text('Location: ${alert.locationName}'),
             const SizedBox(height: 8),
             Text('Reported: ${_formatDateTime(alert.createdAt)}'),

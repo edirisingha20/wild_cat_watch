@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/navigation/main_navigation_screen.dart';
-import '../../services/storage_service.dart';
+import 'auth_provider.dart';
 import 'login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -12,8 +13,6 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  final StorageService _storageService = StorageService();
-
   @override
   void initState() {
     super.initState();
@@ -23,15 +22,16 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _restoreSession() async {
-    final String? accessToken = await _storageService.getAccessToken();
+    final AuthProvider authProvider = context.read<AuthProvider>();
+
+    final bool restored = await authProvider.restoreSession();
 
     if (!mounted) {
       return;
     }
 
-    final Widget destination = (accessToken != null && accessToken.isNotEmpty)
-        ? const MainNavigationScreen()
-        : const LoginScreen();
+    final Widget destination =
+        restored ? const MainNavigationScreen() : const LoginScreen();
 
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => destination),
@@ -40,9 +40,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(
-        child: CircularProgressIndicator(),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: const Center(
+        child: CircularProgressIndicator(color: Colors.black),
       ),
     );
   }

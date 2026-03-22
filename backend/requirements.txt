@@ -8,3 +8,4 @@ djangorestframework-simplejwt
 pillow
 python-dotenv
 firebase-admin
+django-cors-headers

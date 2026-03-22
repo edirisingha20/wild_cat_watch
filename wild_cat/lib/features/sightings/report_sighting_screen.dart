@@ -2,10 +2,10 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/navigation/main_navigation_screen.dart';
+import '../../services/location_service.dart';
 import '../../services/sightings_service.dart';
 
 class ReportSightingScreen extends StatefulWidget {
@@ -16,6 +16,7 @@ class ReportSightingScreen extends StatefulWidget {
 
 class _ReportSightingScreenState extends State<ReportSightingScreen> {
   final SightingsService _sightingsService = SightingsService();
+  final LocationService _locationService = LocationService();
   final ImagePicker _imagePicker = ImagePicker();
   final TextEditingController _descriptionController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
@@ -34,7 +35,12 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
 
   Future<void> _pickImage(ImageSource source) async {
     try {
-      final XFile? image = await _imagePicker.pickImage(source: source);
+      final XFile? image = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 80,
+      );
       if (image == null) {
         return;
       }
@@ -52,32 +58,13 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
     });
 
     try {
-      final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _showSnackBar('Location services are disabled');
-        return;
-      }
-
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        _showSnackBar('Location permission denied');
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _showSnackBar('Location permission denied forever');
-        return;
-      }
-
-      final Position position = await Geolocator.getCurrentPosition();
+      final position = await _locationService.getCurrentLocation();
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
       });
+    } on LocationServiceException catch (e) {
+      _showSnackBar(e.message);
     } catch (_) {
       _showSnackBar('Failed to fetch location');
     } finally {

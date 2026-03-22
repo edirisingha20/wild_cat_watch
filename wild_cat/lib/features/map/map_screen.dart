@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../services/location_service.dart';
 import '../../services/sightings_service.dart';
 import '../sightings/models/alert_model.dart';
 
@@ -15,6 +15,7 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   final SightingsService _sightingsService = SightingsService();
+  final LocationService _locationService = LocationService();
 
   GoogleMapController? _mapController;
   LatLng? _currentPosition;
@@ -43,7 +44,7 @@ class _MapScreenState extends State<MapScreen> {
     });
 
     try {
-      final Position position = await _getCurrentLocation();
+      final position = await _locationService.getCurrentLocation();
       final LatLng currentLocation = LatLng(position.latitude, position.longitude);
 
       final List<Alert> nearbyAlerts = await _sightingsService.fetchNearbySightings(
@@ -100,6 +101,14 @@ class _MapScreenState extends State<MapScreen> {
       await _mapController?.animateCamera(
         CameraUpdate.newLatLngZoom(currentLocation, 14),
       );
+    } on LocationServiceException catch (e) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _errorMessage = e.message;
+        _isLoading = false;
+      });
     } on DioException {
       if (!mounted) {
         return;
@@ -119,36 +128,18 @@ class _MapScreenState extends State<MapScreen> {
     }
   }
 
-  Future<Position> _getCurrentLocation() async {
-    final bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('GPS is disabled');
-    }
-
-    LocationPermission permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-
-    if (permission == LocationPermission.denied) {
-      throw Exception('Location permission denied');
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      throw Exception('Location permission permanently denied');
-    }
-
-    return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Map')),
+      appBar: AppBar(
+        title: const Text('Map'),
+        actions: <Widget>[
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _isLoading ? null : _loadMapData,
+          ),
+        ],
+      ),
       body: Stack(
         children: <Widget>[
           GoogleMap(

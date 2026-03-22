@@ -14,12 +14,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final SightingsService _sightingsService = SightingsService();
-  late final Future<List<Alert>> _alertsFuture;
+  late Future<List<Alert>> _alertsFuture;
 
   @override
   void initState() {
     super.initState();
     _alertsFuture = _sightingsService.fetchSightings();
+  }
+
+  Future<void> _refresh() async {
+    final Future<List<Alert>> fresh = _sightingsService.fetchSightings();
+    setState(() {
+      _alertsFuture = fresh;
+    });
+    await fresh;
   }
 
   @override
@@ -37,43 +45,68 @@ class _HomeScreenState extends State<HomeScreen> {
           }
 
           if (snapshot.hasError) {
-            return const Center(child: Text('Failed to load alerts'));
+            return Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Text('Failed to load alerts'),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: _refresh,
+                    child: const Text('Retry'),
+                  ),
+                ],
+              ),
+            );
           }
 
           final List<Alert> alerts = snapshot.data ?? <Alert>[];
           if (alerts.isEmpty) {
-            return const Center(child: Text('No alerts available'));
+            return RefreshIndicator(
+              onRefresh: _refresh,
+              child: ListView(
+                children: const <Widget>[
+                  SizedBox(height: 200),
+                  Center(child: Text('No alerts available')),
+                ],
+              ),
+            );
           }
 
-          return ListView.builder(
-            itemCount: alerts.length,
-            itemBuilder: (BuildContext context, int index) {
-              final Alert alert = alerts[index];
-              return ListTile(
-                title: Text(alert.description),
-                subtitle: Text(
-                  '${alert.locationName} - ${_formatAlertTime(alert.createdAt)}',
-                ),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => AlertDetailsScreen(alert: alert),
-                    ),
-                  );
-                },
-              );
-            },
+          return RefreshIndicator(
+            onRefresh: _refresh,
+            child: ListView.builder(
+              itemCount: alerts.length,
+              itemBuilder: (BuildContext context, int index) {
+                final Alert alert = alerts[index];
+                return ListTile(
+                  title: Text(alert.description),
+                  subtitle: Text(
+                    '${alert.locationName} - ${_formatAlertTime(alert.createdAt)}',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => AlertDetailsScreen(alert: alert),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
           );
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
+        onPressed: () async {
+          await Navigator.of(context).push(
             MaterialPageRoute<void>(
               builder: (_) => const ReportSightingScreen(),
             ),
           );
+          // Refresh after returning from report screen.
+          _refresh();
         },
         child: const Icon(Icons.add),
       ),

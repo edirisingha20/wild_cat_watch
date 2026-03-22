@@ -4,17 +4,24 @@ import 'package:dio/dio.dart';
 
 import '../features/sightings/models/alert_model.dart';
 import 'api_service.dart';
-import 'storage_service.dart';
 
 class SightingsService {
   final ApiService _api = ApiService();
-  final StorageService _storageService = StorageService();
 
-  Future<List<Alert>> fetchSightings() async {
-    final response = await _api.dio.get('sightings/');
-    final List<dynamic> data = response.data as List<dynamic>;
+  /// Fetches the paginated sightings list.
+  /// DRF returns `{count, next, previous, results}` when pagination is enabled.
+  Future<List<Alert>> fetchSightings({int page = 1}) async {
+    final response = await _api.dio.get(
+      'sightings/',
+      queryParameters: <String, dynamic>{'page': page},
+    );
 
-    return data
+    final dynamic body = response.data;
+    final List<dynamic> results = body is Map<String, dynamic>
+        ? (body['results'] as List<dynamic>? ?? <dynamic>[])
+        : body as List<dynamic>;
+
+    return results
         .map(
           (dynamic json) =>
               Alert.fromJson(Map<String, dynamic>.from(json as Map)),
@@ -34,6 +41,7 @@ class SightingsService {
       },
     );
 
+    // Nearby endpoint returns a plain list (no pagination).
     final List<dynamic> data = response.data as List<dynamic>;
     return data
         .map(
@@ -50,14 +58,6 @@ class SightingsService {
     required String locationName,
     required File imageFile,
   }) async {
-    final String? token = await _storageService.getToken();
-    if (token == null || token.isEmpty) {
-      throw DioException(
-        requestOptions: RequestOptions(path: 'sightings/report/'),
-        error: 'Authentication token not found. Please login again.',
-      );
-    }
-
     final FormData formData = FormData.fromMap(<String, dynamic>{
       'description': description,
       'latitude': latitude,
@@ -71,7 +71,6 @@ class SightingsService {
       data: formData,
       options: Options(
         headers: <String, String>{
-          'Authorization': 'Bearer $token',
           'Content-Type': 'multipart/form-data',
         },
       ),
