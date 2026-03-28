@@ -2,6 +2,8 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from sightings.models import DeviceToken, UserLocation
+
 
 User = get_user_model()
 
@@ -67,3 +69,62 @@ class LoginSerializer(serializers.Serializer):
         attrs['access'] = str(refresh.access_token)
         attrs['refresh'] = str(refresh)
         return attrs
+
+
+class DeviceTokenSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DeviceToken
+        fields = ['token']
+        # Suppress the auto-generated UniqueValidator for the token field.
+        # Deduplication is handled explicitly in create() via update_or_create,
+        # so the validator would only cause false 400s on re-registration.
+        extra_kwargs = {
+            'token': {'validators': []},
+        }
+
+    def validate_token(self, value):
+        token = value.strip()
+        if not token:
+            raise serializers.ValidationError('Token cannot be empty.')
+        return token
+
+    def create(self, validated_data):
+        user = self.context['request'].user
+        token = validated_data['token']
+        # De-duplicate tokens globally and keep association with the current user.
+        device_token, _ = DeviceToken.objects.update_or_create(
+            token=token,
+            defaults={'user': user},
+        )
+        return device_token
+
+
+class UserLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserLocation
+        fields = ['latitude', 'longitude']
+
+    def validate_latitude(self, value):
+        if value < -90 or value > 90:
+            raise serializers.ValidationError('Latitude must be between -90 and 90.')
+        return value
+
+    def validate_longitude(self, value):
+        if value < -180 or value > 180:
+            raise serializers.ValidationError('Longitude must be between -180 and 180.')
+        return value
+
+
+class UserProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'email',
+            'full_name',
+            'birthday',
+            'designation',
+            'date_joined',
+        ]
+        read_only_fields = ['id', 'username', 'email', 'date_joined']

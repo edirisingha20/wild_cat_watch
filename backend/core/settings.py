@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+from datetime import timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -28,7 +29,11 @@ SECRET_KEY = os.getenv('SECRET_KEY') or 'django-insecure-change-this-for-product
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').strip().lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = []
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', '')
+if allowed_hosts_env.strip():
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+else:
+    ALLOWED_HOSTS = ['127.0.0.1', 'localhost', '10.0.2.2']
 
 
 # Application definition
@@ -40,6 +45,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'corsheaders',
     'rest_framework',
     'users',
     'sightings'
@@ -47,6 +53,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -135,6 +142,39 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '50/day',
+        'user': '500/day',
+        'report_sighting': '10/hour',
+    },
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
 AUTH_USER_MODEL = 'users.User'
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': False,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+}
+
+# Firebase Admin credentials path (optional). If not set, notifications/firebase.py
+# falls back to BASE_DIR / 'firebase_service_account.json'.
+FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '').strip() or None
+
+# Radius (km) used for nearby-sighting detection AND notification delivery.
+NEARBY_SIGHTING_RADIUS_KM = float(os.getenv('NEARBY_SIGHTING_RADIUS_KM', '5'))
+
+# Maximum age (minutes) for a user location to be considered fresh for notifications.
+USER_LOCATION_MAX_AGE_MINUTES = int(os.getenv('USER_LOCATION_MAX_AGE_MINUTES', '30'))
+
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r'^http://localhost(:\d+)?$',
+    r'^http://127\.0\.0\.1(:\d+)?$',
+]

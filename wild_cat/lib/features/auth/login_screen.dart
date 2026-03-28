@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/navigation/main_navigation_screen.dart';
 import 'auth_provider.dart';
+import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -44,6 +46,14 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(message)),
     );
+
+    if (success) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => const MainNavigationScreen(),
+        ),
+      );
+    }
   }
 
   @override
@@ -85,9 +95,23 @@ class _LoginScreenState extends State<LoginScreen> {
                   if (authProvider.isLoading)
                     const CircularProgressIndicator()
                   else
-                    ElevatedButton(
-                      onPressed: _onLoginPressed,
-                      child: const Text('Login'),
+                    Column(
+                      children: <Widget>[
+                        ElevatedButton(
+                          onPressed: _onLoginPressed,
+                          child: const Text('Login'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const RegisterScreen(),
+                              ),
+                            );
+                          },
+                          child: const Text('Go to Register'),
+                        ),
+                      ],
                     ),
                 ],
               ),
