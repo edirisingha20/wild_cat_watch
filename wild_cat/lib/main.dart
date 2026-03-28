@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 
 import 'features/auth/auth_provider.dart';
@@ -14,6 +15,7 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: '.env');
 
   // Initialize Firebase before anything else that depends on it.
   try {
@@ -42,6 +44,7 @@ Future<void> _initializeNotifications() async {
         );
       },
     );
+    notificationService.listenForTokenRefresh();
   } catch (e) {
     // FCM setup should not block app startup in non-configured environments.
     debugPrint('FCM initialization skipped: $e');

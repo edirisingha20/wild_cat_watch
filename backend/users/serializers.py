@@ -75,6 +75,12 @@ class DeviceTokenSerializer(serializers.ModelSerializer):
     class Meta:
         model = DeviceToken
         fields = ['token']
+        # Suppress the auto-generated UniqueValidator for the token field.
+        # Deduplication is handled explicitly in create() via update_or_create,
+        # so the validator would only cause false 400s on re-registration.
+        extra_kwargs = {
+            'token': {'validators': []},
+        }
 
     def validate_token(self, value):
         token = value.strip()

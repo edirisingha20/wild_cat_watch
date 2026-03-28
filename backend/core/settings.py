@@ -168,6 +168,12 @@ SIMPLE_JWT = {
 # falls back to BASE_DIR / 'firebase_service_account.json'.
 FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '').strip() or None
 
+# Radius (km) used for nearby-sighting detection AND notification delivery.
+NEARBY_SIGHTING_RADIUS_KM = float(os.getenv('NEARBY_SIGHTING_RADIUS_KM', '5'))
+
+# Maximum age (minutes) for a user location to be considered fresh for notifications.
+USER_LOCATION_MAX_AGE_MINUTES = int(os.getenv('USER_LOCATION_MAX_AGE_MINUTES', '30'))
+
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^http://localhost(:\d+)?$',
     r'^http://127\.0\.0\.1(:\d+)?$',

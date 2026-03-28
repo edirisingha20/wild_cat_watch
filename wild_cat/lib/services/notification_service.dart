@@ -72,10 +72,31 @@ class NotificationService {
       return;
     }
 
-    await _apiService.dio.post(
+    await _apiService.post(
       'users/device-token/',
       data: <String, dynamic>{'token': deviceToken},
     );
+  }
+
+  /// Listen for FCM token refreshes and re-register with the backend.
+  void listenForTokenRefresh() {
+    if (Firebase.apps.isEmpty) {
+      debugPrint('Skipping FCM token-refresh listener because Firebase is not initialized.');
+      return;
+    }
+
+    FirebaseMessaging.instance.onTokenRefresh.listen((String newToken) async {
+      debugPrint('FCM token refreshed, registering with backend...');
+      try {
+        await _apiService.post(
+          'users/device-token/',
+          data: <String, dynamic>{'token': newToken},
+        );
+        debugPrint('Refreshed FCM token registered successfully.');
+      } catch (e) {
+        debugPrint('Failed to register refreshed FCM token: $e');
+      }
+    });
   }
 
   void listenForegroundMessages({

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
 import 'models/user_profile.dart';
+import '../../services/api_service.dart';
 import '../../services/profile_service.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -96,10 +97,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const SnackBar(content: Text('Profile updated')),
                             );
                           } on DioException catch (e) {
-                            final dynamic data = e.response?.data;
-                            final String message = data is Map<String, dynamic>
-                                ? (data['detail']?.toString() ?? 'Failed to update profile')
-                                : 'Failed to update profile';
+                            final String message = ApiService.buildErrorMessage(
+                              e,
+                              fallbackMessage: 'Failed to update profile',
+                            );
                             ScaffoldMessenger.of(this.context).showSnackBar(
                               SnackBar(content: Text(message)),
                             );

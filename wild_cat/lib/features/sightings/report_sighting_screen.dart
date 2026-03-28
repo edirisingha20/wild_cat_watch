@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/navigation/main_navigation_screen.dart';
+import '../../services/api_service.dart';
 import '../../services/location_service.dart';
 import '../../services/sightings_service.dart';
 
@@ -119,15 +120,12 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
         );
       }
     } on DioException catch (e) {
-      final dynamic data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        final String message = data['detail']?.toString() ??
-            data['error']?.toString() ??
-            'Failed to submit report';
-        _showSnackBar(message);
-      } else {
-        _showSnackBar('Network or server error while submitting report');
-      }
+      _showSnackBar(
+        ApiService.buildErrorMessage(
+          e,
+          fallbackMessage: 'Failed to submit report',
+        ),
+      );
     } catch (_) {
       _showSnackBar('Failed to submit report');
     } finally {

@@ -5,6 +5,7 @@ import 'package:geolocator/geolocator.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/map/map_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../services/api_service.dart';
 import '../../features/sightings/report_sighting_screen.dart';
 import '../../services/location_api_service.dart';
 import '../../services/location_service.dart';
@@ -96,16 +97,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     } on LocationServiceException catch (e) {
       _showMessage(e.message);
     } on DioException catch (e) {
-      final dynamic data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        _showMessage(
-          data['detail']?.toString() ??
-              data['error']?.toString() ??
-              'Failed to update user location',
-        );
-      } else {
-        _showMessage('Failed to update user location');
-      }
+      _showMessage(
+        ApiService.buildErrorMessage(
+          e,
+          fallbackMessage: 'Failed to update user location',
+        ),
+      );
     } catch (_) {
       _showMessage('Failed to update user location');
     }
@@ -115,16 +112,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     try {
       await _notificationService.registerDeviceTokenToBackend();
     } on DioException catch (e) {
-      final dynamic data = e.response?.data;
-      if (data is Map<String, dynamic>) {
-        _showMessage(
-          data['detail']?.toString() ??
-              data['error']?.toString() ??
-              'Failed to register notification token',
-        );
-      } else {
-        _showMessage('Failed to register notification token');
-      }
+      _showMessage(
+        ApiService.buildErrorMessage(
+          e,
+          fallbackMessage: 'Failed to register notification token',
+        ),
+      );
     } catch (_) {
       _showMessage('Failed to register notification token');
     }
