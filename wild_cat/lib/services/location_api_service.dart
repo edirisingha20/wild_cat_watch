@@ -7,7 +7,7 @@ class LocationApiService {
     required double latitude,
     required double longitude,
   }) async {
-    await _api.dio.post(
+    await _api.post(
       'users/location/',
       data: <String, dynamic>{
         'latitude': latitude,

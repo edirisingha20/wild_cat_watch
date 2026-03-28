@@ -2,9 +2,13 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../services/api_service.dart';
 import '../../services/location_service.dart';
 import '../../services/sightings_service.dart';
 import '../sightings/models/alert_model.dart';
+
+/// Radius in metres that matches the backend NEARBY_SIGHTING_RADIUS_KM (5 km).
+const double kNearbySightingRadiusMeters = 5000;
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -78,7 +82,7 @@ class _MapScreenState extends State<MapScreen> {
           Circle(
             circleId: CircleId(alert.id.toString()),
             center: LatLng(alert.latitude, alert.longitude),
-            radius: 500,
+            radius: kNearbySightingRadiusMeters,
             fillColor: Colors.red.withValues(alpha: 0.2),
             strokeColor: Colors.red,
             strokeWidth: 2,
@@ -109,12 +113,15 @@ class _MapScreenState extends State<MapScreen> {
         _errorMessage = e.message;
         _isLoading = false;
       });
-    } on DioException {
+    } on DioException catch (e) {
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorMessage = 'Failed to load nearby sightings';
+        _errorMessage = ApiService.buildErrorMessage(
+          e,
+          fallbackMessage: 'Failed to load nearby sightings',
+        );
         _isLoading = false;
       });
     } on Exception catch (e) {

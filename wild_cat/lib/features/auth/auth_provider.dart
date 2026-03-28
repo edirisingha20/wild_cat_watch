@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../services/auth_service.dart';
+import '../../services/api_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/storage_service.dart';
 import '../profile/models/user_profile.dart';
@@ -53,14 +54,10 @@ class AuthProvider extends ChangeNotifier {
 
       return true;
     } on DioException catch (e) {
-      final dynamic responseData = e.response?.data;
-      if (responseData is Map<String, dynamic>) {
-        errorMessage = responseData['detail']?.toString() ??
-            responseData['message']?.toString() ??
-            'Login failed.';
-      } else {
-        errorMessage = 'Login failed.';
-      }
+      errorMessage = ApiService.buildErrorMessage(
+        e,
+        fallbackMessage: 'Login failed.',
+      );
       return false;
     } catch (_) {
       errorMessage = 'Unexpected error occurred.';
@@ -80,14 +77,10 @@ class AuthProvider extends ChangeNotifier {
       await _authService.register(userData);
       return true;
     } on DioException catch (e) {
-      final dynamic responseData = e.response?.data;
-      if (responseData is Map<String, dynamic>) {
-        errorMessage = responseData['detail']?.toString() ??
-            responseData['message']?.toString() ??
-            'Registration failed.';
-      } else {
-        errorMessage = 'Registration failed.';
-      }
+      errorMessage = ApiService.buildErrorMessage(
+        e,
+        fallbackMessage: 'Registration failed.',
+      );
       return false;
     } catch (_) {
       errorMessage = 'Unexpected error occurred.';
@@ -99,25 +92,43 @@ class AuthProvider extends ChangeNotifier {
   }
 
   /// Restore session from stored tokens. Returns true if session is valid.
+  ///
+  /// - 401 → tokens are invalid, clear them and return false.
+  /// - Network / timeout error → keep tokens, retry once after a short delay,
+  ///   then return false without clearing tokens so the user can try again.
   Future<bool> restoreSession() async {
     final String? token = await _storageService.getAccessToken();
     if (token == null || token.isEmpty) {
       return false;
     }
 
-    try {
-      await _loadUserProfile();
-      return currentUser != null;
-    } on DioException catch (e) {
-      // Only clear tokens if the server explicitly rejected them.
-      if (e.response?.statusCode == 401) {
-        await _storageService.clearAllTokens();
+    for (int attempt = 1; attempt <= 2; attempt++) {
+      try {
+        await _loadUserProfile();
+        return currentUser != null;
+      } on DioException catch (e) {
+        if (e.response?.statusCode == 401) {
+          // Server explicitly rejected the token — clear and bail out.
+          await _storageService.clearAllTokens();
+          return false;
+        }
+        // Network error on first attempt — wait briefly and retry.
+        if (attempt < 2) {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          continue;
+        }
+        // Still failing after retry — keep tokens intact so a later attempt
+        // can succeed once connectivity is restored.
+        return false;
+      } catch (_) {
+        if (attempt < 2) {
+          await Future<void>.delayed(const Duration(seconds: 2));
+          continue;
+        }
+        return false;
       }
-      return false;
-    } catch (_) {
-      // Network errors, timeouts, etc. — don't clear tokens, just fail silently.
-      return false;
     }
+    return false;
   }
 
   Future<void> logout() async {

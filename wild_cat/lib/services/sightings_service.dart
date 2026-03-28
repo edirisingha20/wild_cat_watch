@@ -11,7 +11,7 @@ class SightingsService {
   /// Fetches the paginated sightings list.
   /// DRF returns `{count, next, previous, results}` when pagination is enabled.
   Future<List<Alert>> fetchSightings({int page = 1}) async {
-    final response = await _api.dio.get(
+    final response = await _api.get(
       'sightings/',
       queryParameters: <String, dynamic>{'page': page},
     );
@@ -33,7 +33,7 @@ class SightingsService {
     required double latitude,
     required double longitude,
   }) async {
-    final response = await _api.dio.get(
+    final response = await _api.get(
       'sightings/nearby/',
       queryParameters: <String, dynamic>{
         'lat': latitude,
@@ -66,7 +66,7 @@ class SightingsService {
       'image': await MultipartFile.fromFile(imageFile.path),
     });
 
-    await _api.dio.post(
+    await _api.post(
       'sightings/report/',
       data: formData,
       options: Options(

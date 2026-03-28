@@ -7,7 +7,7 @@ class ProfileService {
   final ApiService _apiService = ApiService();
 
   Future<UserProfile> getProfile() async {
-    final Response<dynamic> response = await _apiService.dio.get('users/me/');
+    final Response<dynamic> response = await _apiService.get('users/me/');
     return UserProfile.fromJson(Map<String, dynamic>.from(response.data as Map));
   }
 
@@ -16,7 +16,7 @@ class ProfileService {
     required String? birthday,
     required String designation,
   }) async {
-    final Response<dynamic> response = await _apiService.dio.patch(
+    final Response<dynamic> response = await _apiService.patch(
       'users/me/',
       data: <String, dynamic>{
         'full_name': fullName,

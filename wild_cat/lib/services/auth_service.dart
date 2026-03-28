@@ -11,7 +11,7 @@ class AuthService {
     required String identifier,
     required String password,
   }) async {
-    final Response<dynamic> response = await _apiService.dio.post(
+    final Response<dynamic> response = await _apiService.post(
       'auth/login/',
       data: <String, dynamic>{
         'identifier': identifier,
@@ -23,7 +23,7 @@ class AuthService {
   }
 
   Future<Response<dynamic>> register(Map<String, dynamic> data) {
-    return _apiService.dio.post(
+    return _apiService.post(
       'auth/register/',
       data: data,
     );
