@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.db import transaction
 
 from notifications.services import send_nearby_alert
 from sightings.models import LeopardSighting
@@ -41,12 +42,23 @@ def create_sighting(user, description, latitude, longitude, image, location_name
     except Exception as exc:
         raise SightingServiceError(f'Failed to create sighting: {exc}') from exc
 
-    # Notification failure must not break the sighting creation.
+    return sighting
+
+
+def verify_sighting(sighting):
+    if sighting.status == LeopardSighting.STATUS_VERIFIED:
+        return sighting
+
+    with transaction.atomic():
+        sighting.status = LeopardSighting.STATUS_VERIFIED
+        sighting.save(update_fields=['status'])
+
+    # Notification failure must not break moderation state changes.
     try:
         send_nearby_alerts(sighting)
     except Exception:
         logger.exception(
-            'Notification dispatch failed for sighting_id=%s (sighting was saved)',
+            'Notification dispatch failed for verified sighting_id=%s',
             sighting.id,
         )
 
