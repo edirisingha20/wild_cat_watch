@@ -59,6 +59,16 @@ def _remove_token_if_invalid(token, exc):
 
 
 def send_nearby_alert(sighting):
+    from sightings.models import LeopardSighting
+
+    if getattr(sighting, 'status', None) != LeopardSighting.STATUS_VERIFIED:
+        logger.info(
+            'Skipping nearby alert for unverified sighting_id=%s status=%s',
+            sighting.id,
+            getattr(sighting, 'status', None),
+        )
+        return 0
+
     radius_km = float(getattr(settings, 'NEARBY_SIGHTING_RADIUS_KM', 5))
     max_age_minutes = int(getattr(
         settings, 'USER_LOCATION_MAX_AGE_MINUTES', _USER_LOCATION_MAX_AGE_MINUTES,
