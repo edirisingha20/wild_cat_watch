@@ -5,7 +5,11 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
-from .serializers import NearbyLeopardSightingSerializer, LeopardSightingSerializer
+from .serializers import (
+    LeopardSightingSerializer,
+    NearbyLeopardSightingSerializer,
+    PublicLeopardSightingSerializer,
+)
 from .services.sighting_service import (
     InvalidCoordinatesError,
     SightingServiceError,
@@ -18,6 +22,11 @@ from .services.sighting_service import (
 class LeopardSightingListView(ListAPIView):
     serializer_class = LeopardSightingSerializer
     permission_classes = [AllowAny]
+
+    def get_serializer_class(self):
+        if self.request.user and self.request.user.is_authenticated:
+            return LeopardSightingSerializer
+        return PublicLeopardSightingSerializer
 
     def get_queryset(self):
         return get_recent_sightings()
@@ -55,7 +64,12 @@ class NearbySightingsView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
-        serializer = NearbyLeopardSightingSerializer(
+        serializer_class = (
+            NearbyLeopardSightingSerializer
+            if request.user and request.user.is_authenticated
+            else PublicLeopardSightingSerializer
+        )
+        serializer = serializer_class(
             ordered_sightings,
             many=True,
             context={

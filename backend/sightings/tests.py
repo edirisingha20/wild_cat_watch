@@ -120,7 +120,43 @@ class SightingApiTests(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreaterEqual(len(response.data), 1)
-        self.assertIn('distance_km', response.data[0])
+        sighting = response.data[0]
+        self.assertIn('approximate_latitude', sighting)
+        self.assertIn('approximate_longitude', sighting)
+        self.assertNotIn('latitude', sighting)
+        self.assertNotIn('longitude', sighting)
+        self.assertNotIn('description', sighting)
+        self.assertNotIn('image', sighting)
+        self.assertNotIn('created_at', sighting)
+        self.assertNotIn('distance_km', sighting)
+
+    def test_authenticated_nearby_sightings_include_full_details(self):
+        user = User.objects.create_user(
+            username='auth_nearby_user',
+            email='auth_nearby_user@example.com',
+            password='Pass1234!',
+        )
+        self.client.force_authenticate(user=user)
+
+        LeopardSighting.objects.create(
+            user=user,
+            description='Authenticated nearby alert',
+            latitude=6.987,
+            longitude=80.762,
+            location_name='Maskeliya',
+            image=generate_test_image(),
+        )
+
+        response = self.client.get('/api/sightings/nearby/?lat=6.987&lng=80.762')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        sighting = response.data[0]
+        self.assertEqual(float(sighting['latitude']), 6.987)
+        self.assertEqual(float(sighting['longitude']), 80.762)
+        self.assertIn('description', sighting)
+        self.assertIn('image', sighting)
+        self.assertIn('created_at', sighting)
+        self.assertIn('distance_km', sighting)
 
     def test_nearby_sightings_excludes_far(self):
         user = User.objects.create_user(
@@ -177,3 +213,38 @@ class SightingApiTests(APITestCase):
         # Paginated response: {count, next, previous, results}
         self.assertEqual(response.data['count'], 2)
         self.assertEqual(len(response.data['results']), 2)
+        sighting = response.data['results'][0]
+        self.assertIn('approximate_latitude', sighting)
+        self.assertIn('approximate_longitude', sighting)
+        self.assertNotIn('latitude', sighting)
+        self.assertNotIn('longitude', sighting)
+        self.assertNotIn('description', sighting)
+        self.assertNotIn('image', sighting)
+        self.assertNotIn('created_at', sighting)
+
+    def test_authenticated_list_sightings_include_full_details(self):
+        user = User.objects.create_user(
+            username='auth_list_user',
+            email='auth_list_user@example.com',
+            password='Pass1234!',
+        )
+        self.client.force_authenticate(user=user)
+
+        LeopardSighting.objects.create(
+            user=user,
+            description='Authenticated sighting',
+            latitude=6.987,
+            longitude=80.762,
+            location_name='Maskeliya',
+            image=generate_test_image(),
+        )
+
+        response = self.client.get('/api/sightings/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        sighting = response.data['results'][0]
+        self.assertEqual(float(sighting['latitude']), 6.987)
+        self.assertEqual(float(sighting['longitude']), 80.762)
+        self.assertIn('description', sighting)
+        self.assertIn('image', sighting)
+        self.assertIn('created_at', sighting)

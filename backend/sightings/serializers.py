@@ -40,6 +40,26 @@ class LeopardSightingSerializer(serializers.ModelSerializer):
         return value
 
 
+class PublicLeopardSightingSerializer(serializers.ModelSerializer):
+    approximate_latitude = serializers.SerializerMethodField()
+    approximate_longitude = serializers.SerializerMethodField()
+
+    class Meta:
+        model = LeopardSighting
+        fields = [
+            'id',
+            'approximate_latitude',
+            'approximate_longitude',
+        ]
+        read_only_fields = fields
+
+    def get_approximate_latitude(self, obj):
+        return round(float(obj.latitude), 1)
+
+    def get_approximate_longitude(self, obj):
+        return round(float(obj.longitude), 1)
+
+
 class NearbyLeopardSightingSerializer(LeopardSightingSerializer):
     distance_km = serializers.SerializerMethodField()
 
