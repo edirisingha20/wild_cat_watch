@@ -49,7 +49,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'users',
-    'sightings'
+    'sightings',
+    'discovery',
 ]
 
 MIDDLEWARE = [
