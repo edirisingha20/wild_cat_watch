@@ -4,6 +4,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
+import '../config/backend_resolver.dart';
 import 'storage_service.dart';
 
 class ApiService {
@@ -27,6 +28,10 @@ class ApiService {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (RequestOptions options, RequestInterceptorHandler handler) async {
+          // Always use the most recently resolved backend address so requests
+          // follow the LAN even after a Wi-Fi/network change.
+          options.baseUrl = BackendResolver.instance.baseUrl;
+
           final bool isPublic = _publicPaths.any(
             (String path) => options.path.contains(path),
           );
@@ -131,7 +136,7 @@ class ApiService {
       }
 
       final Response<dynamic> response = await Dio(
-        BaseOptions(baseUrl: AppConfig.normalizedApiBaseUrl),
+        BaseOptions(baseUrl: BackendResolver.instance.baseUrl),
       ).post(
         'token/refresh/',
         data: <String, String>{'refresh': refreshToken},

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:provider/provider.dart';
 
+import 'config/backend_resolver.dart';
 import 'core/notification_router.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/auth/splash_screen.dart';
@@ -37,6 +38,10 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: '.env');
+
+  // Discover the backend on the LAN (mDNS) so the app follows the laptop's
+  // address across Wi-Fi changes. Falls back to the .env API_URL if not found.
+  await BackendResolver.instance.initialize();
 
   // Firebase must be initialized before registering the background handler.
   try {
