@@ -4,46 +4,80 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from sightings.models import DeviceToken, UserLocation
 
+from .models import Department, Position
+
 
 User = get_user_model()
 
 
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'name']
+
+
+class PositionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Position
+        fields = ['id', 'name']
+
+
 class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-    password_confirm = serializers.CharField(write_only=True)
+    confirm_password = serializers.CharField(write_only=True)
+    department_id = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        source='department',
+        write_only=True,
+    )
+    position_id = serializers.PrimaryKeyRelatedField(
+        queryset=Position.objects.select_related('department').all(),
+        source='position',
+        write_only=True,
+    )
 
     class Meta:
         model = User
         fields = [
             'full_name',
             'birthday',
-            'designation',
             'username',
             'email',
+            'department_id',
+            'position_id',
             'password',
-            'password_confirm',
+            'confirm_password',
         ]
         extra_kwargs = {
             'full_name': {'required': True},
             'birthday': {'required': True},
-            'designation': {'required': True},
             'username': {'required': True},
             'email': {'required': True},
         }
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError('A user with this email already exists.')
         return value
 
     def validate(self, attrs):
-        if attrs['password'] != attrs['password_confirm']:
-            raise serializers.ValidationError({'password_confirm': 'Passwords do not match.'})
+        if attrs['password'] != attrs['confirm_password']:
+            raise serializers.ValidationError({'confirm_password': 'Passwords do not match.'})
+
+        department = attrs.get('department')
+        position = attrs.get('position')
+        if department and position and position.department_id != department.id:
+            raise serializers.ValidationError({
+                'position_id': 'Selected position must belong to the selected department.'
+            })
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop('password_confirm')
+        validated_data.pop('confirm_password')
         password = validated_data.pop('password')
+        position = validated_data.get('position')
+        if position and not validated_data.get('designation'):
+            validated_data['designation'] = position.name
         return User.objects.create_user(password=password, **validated_data)
 
 
@@ -116,6 +150,23 @@ class UserLocationSerializer(serializers.ModelSerializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    department = DepartmentSerializer(read_only=True)
+    position = PositionSerializer(read_only=True)
+    department_id = serializers.PrimaryKeyRelatedField(
+        queryset=Department.objects.all(),
+        source='department',
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+    position_id = serializers.PrimaryKeyRelatedField(
+        queryset=Position.objects.select_related('department').all(),
+        source='position',
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
     class Meta:
         model = User
         fields = [
@@ -124,7 +175,36 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'email',
             'full_name',
             'birthday',
-            'designation',
-            'date_joined',
+            'department',
+            'position',
+            'department_id',
+            'position_id',
         ]
-        read_only_fields = ['id', 'username', 'email', 'date_joined']
+        read_only_fields = ['id', 'username', 'email', 'department', 'position']
+
+    def validate(self, attrs):
+        department = attrs.get('department', getattr(self.instance, 'department', None))
+        position = attrs.get('position', getattr(self.instance, 'position', None))
+
+        if department and position and position.department_id != department.id:
+            raise serializers.ValidationError({
+                'position_id': 'Selected position must belong to the selected department.'
+            })
+
+        return attrs
+
+    def update(self, instance, validated_data):
+        department = validated_data.pop('department', instance.department)
+        position = validated_data.pop('position', instance.position)
+
+        for field in ['full_name', 'birthday']:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+
+        instance.department = department
+        instance.position = position
+        instance.designation = position.name if position is not None else ''
+
+        update_fields = ['full_name', 'birthday', 'department', 'position', 'designation']
+        instance.save(update_fields=update_fields)
+        return instance

@@ -5,11 +5,15 @@ from rest_framework.views import APIView
 
 from sightings.models import UserLocation
 
+from .models import Department, Position
+
 from .serializers import (
+    DepartmentSerializer,
     DeviceTokenSerializer,
     LoginSerializer,
     UserProfileSerializer,
     UserLocationSerializer,
+    PositionSerializer,
     UserRegisterSerializer,
 )
 
@@ -23,8 +27,13 @@ class RegisterView(APIView):
             user = serializer.save()
             return Response(
                 {
+                    'id': user.id,
+                    'full_name': user.full_name,
                     'username': user.username,
                     'email': user.email,
+                    'birthday': user.birthday,
+                    'department': DepartmentSerializer(user.department).data if user.department else None,
+                    'position': PositionSerializer(user.position).data if user.position else None,
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -90,19 +99,39 @@ class UserProfileView(APIView):
             partial=True,
         )
         if serializer.is_valid():
-            allowed_fields = {'full_name', 'birthday', 'designation'}
-            filtered_validated_data = {
-                key: value
-                for key, value in serializer.validated_data.items()
-                if key in allowed_fields
-            }
-
-            for key, value in filtered_validated_data.items():
-                setattr(request.user, key, value)
-            request.user.save(update_fields=list(filtered_validated_data.keys()))
-
-            return Response(
-                UserProfileSerializer(request.user).data,
-                status=status.HTTP_200_OK,
-            )
+            serializer.save()
+            return Response(UserProfileSerializer(request.user).data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DepartmentListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        serializer = DepartmentSerializer(Department.objects.all(), many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class PositionListView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        department_id = request.query_params.get('department_id')
+        if not department_id:
+            return Response(
+                {'department_id': 'This query parameter is required.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        department = Department.objects.filter(pk=department_id).first()
+        if department is None:
+            return Response(
+                {'department_id': 'Invalid department.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = PositionSerializer(
+            Position.objects.filter(department=department).select_related('department'),
+            many=True,
+        )
+        return Response(serializer.data, status=status.HTTP_200_OK)

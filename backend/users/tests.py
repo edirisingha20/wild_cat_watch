@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from users.models import Department, Position
 from sightings.models import DeviceToken, UserLocation
 
 
@@ -9,21 +10,67 @@ User = get_user_model()
 
 
 class UserApiTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.wildlife_department, _ = Department.objects.get_or_create(
+            name='Wildlife Conservation Department',
+        )
+        cls.forest_department, _ = Department.objects.get_or_create(
+            name='Forest Department',
+        )
+        cls.estates_department, _ = Department.objects.get_or_create(
+            name='Estate Sector',
+        )
+
+        cls.wildlife_ranger, _ = Position.objects.get_or_create(
+            department=cls.wildlife_department,
+            name='Wildlife Ranger',
+        )
+        cls.forest_ranger, _ = Position.objects.get_or_create(
+            department=cls.forest_department,
+            name='Forester',
+        )
+
     def test_user_registration(self):
         payload = {
             'full_name': 'Kavinda Supun',
             'birthday': '2000-05-10',
-            'designation': 'Software Engineer',
             'username': 'kavinda_test',
             'email': 'kavinda_test@example.com',
+            'department_id': self.wildlife_department.id,
+            'position_id': self.wildlife_ranger.id,
             'password': 'Pass1234!',
-            'password_confirm': 'Pass1234!',
+            'confirm_password': 'Pass1234!',
         }
 
         response = self.client.post('/api/auth/register/', payload, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(User.objects.filter(username='kavinda_test').exists())
+        user = User.objects.get(username='kavinda_test')
+        self.assertEqual(user.department, self.wildlife_department)
+        self.assertEqual(user.position, self.wildlife_ranger)
+
+    def test_department_lookup(self):
+        response = self.client.get('/api/users/departments/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 3)
+        self.assertEqual(response.data[0]['name'], 'Estate Sector')
+
+    def test_position_lookup_filters_by_department(self):
+        response = self.client.get(
+            f'/api/users/positions/?department_id={self.wildlife_department.id}'
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['name'], 'Wildlife Ranger')
+
+    def test_position_lookup_requires_department(self):
+        response = self.client.get('/api/users/positions/')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
     def test_registration_duplicate_email(self):
         User.objects.create_user(
@@ -35,11 +82,12 @@ class UserApiTests(APITestCase):
         payload = {
             'full_name': 'Another User',
             'birthday': '2000-01-01',
-            'designation': 'Tester',
             'username': 'new_user',
             'email': 'dup@example.com',
+            'department_id': self.wildlife_department.id,
+            'position_id': self.wildlife_ranger.id,
             'password': 'Pass1234!',
-            'password_confirm': 'Pass1234!',
+            'confirm_password': 'Pass1234!',
         }
 
         response = self.client.post('/api/auth/register/', payload, format='json')
@@ -49,15 +97,32 @@ class UserApiTests(APITestCase):
         payload = {
             'full_name': 'Mismatch User',
             'birthday': '2000-01-01',
-            'designation': 'Tester',
             'username': 'mismatch_user',
             'email': 'mismatch@example.com',
+            'department_id': self.wildlife_department.id,
+            'position_id': self.wildlife_ranger.id,
             'password': 'Pass1234!',
-            'password_confirm': 'DifferentPass!',
+            'confirm_password': 'DifferentPass!',
         }
 
         response = self.client.post('/api/auth/register/', payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_registration_rejects_position_from_other_department(self):
+        payload = {
+            'full_name': 'Mismatch Position User',
+            'birthday': '2000-01-01',
+            'username': 'wrong_position_user',
+            'email': 'wrong_position@example.com',
+            'department_id': self.wildlife_department.id,
+            'position_id': self.forest_ranger.id,
+            'password': 'Pass1234!',
+            'confirm_password': 'Pass1234!',
+        }
+
+        response = self.client.post('/api/auth/register/', payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('position_id', response.data)
 
     def test_user_login(self):
         User.objects.create_user(
@@ -65,8 +130,10 @@ class UserApiTests(APITestCase):
             email='login_user@example.com',
             password='Pass1234!',
             full_name='Login User',
-            designation='Tester',
             birthday='2001-01-01',
+            department=self.wildlife_department,
+            position=self.wildlife_ranger,
+            designation='Wildlife Ranger',
         )
 
         response = self.client.post(
@@ -200,14 +267,30 @@ class UserApiTests(APITestCase):
 
 
 class UserProfileApiTests(APITestCase):
+    @classmethod
+    def setUpTestData(cls):
+        cls.wildlife_department, _ = Department.objects.get_or_create(
+            name='Wildlife Conservation Department',
+        )
+        cls.wildlife_ranger, _ = Position.objects.get_or_create(
+            department=cls.wildlife_department,
+            name='Wildlife Ranger',
+        )
+        cls.wildlife_officer, _ = Position.objects.get_or_create(
+            department=cls.wildlife_department,
+            name='Wildlife Officer',
+        )
+
     def setUp(self):
         self.user = User.objects.create_user(
             username='profile_user',
             email='profile_user@example.com',
             password='Pass1234!',
             full_name='Profile User',
-            designation='Ranger',
             birthday='1995-06-15',
+            department=self.wildlife_department,
+            position=self.wildlife_ranger,
+            designation='Wildlife Ranger',
         )
         self.client.force_authenticate(user=self.user)
 
@@ -215,22 +298,26 @@ class UserProfileApiTests(APITestCase):
         response = self.client.get('/api/users/me/')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['username'], 'profile_user')
         self.assertEqual(response.data['email'], 'profile_user@example.com')
         self.assertEqual(response.data['full_name'], 'Profile User')
-        self.assertEqual(response.data['designation'], 'Ranger')
         self.assertEqual(response.data['birthday'], '1995-06-15')
+        self.assertEqual(response.data['department']['name'], 'Wildlife Conservation Department')
+        self.assertEqual(response.data['position']['name'], 'Wildlife Ranger')
 
     def test_update_profile(self):
         response = self.client.patch(
             '/api/users/me/',
-            {'full_name': 'Updated Name', 'designation': 'Senior Ranger'},
+            {
+                'full_name': 'Updated Name',
+                'department_id': self.wildlife_department.id,
+                'position_id': self.wildlife_officer.id,
+            },
             format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['full_name'], 'Updated Name')
-        self.assertEqual(response.data['designation'], 'Senior Ranger')
+        self.assertEqual(response.data['position']['name'], 'Wildlife Officer')
         # Email should not change.
         self.assertEqual(response.data['email'], 'profile_user@example.com')
 

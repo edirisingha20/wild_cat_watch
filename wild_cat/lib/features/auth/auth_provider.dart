@@ -145,7 +145,8 @@ class AuthProvider extends ChangeNotifier {
         fullName: profile.fullName.isNotEmpty ? profile.fullName : 'Wild Cat User',
         username: profile.username,
         email: profile.email,
-        designation: profile.designation.isNotEmpty ? profile.designation : 'Community Member',
+        departmentName: profile.department?.name ?? 'Unknown Department',
+        positionName: profile.position?.name ?? 'Unknown Position',
       );
     } catch (_) {
       // If profile fetch fails, use fallback data so login still works.
@@ -161,7 +162,8 @@ class AuthProvider extends ChangeNotifier {
       fullName: 'Wild Cat User',
       username: isEmail ? identifier.split('@').first : identifier,
       email: isEmail ? identifier : 'Not available',
-      designation: 'Community Member',
+      departmentName: 'Unknown Department',
+      positionName: 'Unknown Position',
     );
   }
 }

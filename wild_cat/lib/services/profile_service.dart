@@ -14,14 +14,16 @@ class ProfileService {
   Future<UserProfile> updateProfile({
     required String fullName,
     required String? birthday,
-    required String designation,
+    required int departmentId,
+    required int positionId,
   }) async {
     final Response<dynamic> response = await _apiService.patch(
       'users/me/',
       data: <String, dynamic>{
         'full_name': fullName,
         'birthday': birthday,
-        'designation': designation,
+        'department_id': departmentId,
+        'position_id': positionId,
       },
     );
 
