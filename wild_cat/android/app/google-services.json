@@ -1,13 +1,13 @@
 {
   "project_info": {
-    "project_number": "218415046771",
-    "project_id": "wild-cat-watch",
-    "storage_bucket": "wild-cat-watch.firebasestorage.app"
+    "project_number": "530693945343",
+    "project_id": "wild-cat-watch-1e4f2",
+    "storage_bucket": "wild-cat-watch-1e4f2.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:218415046771:android:e0b7fd96d9bc71f984ca06",
+        "mobilesdk_app_id": "1:530693945343:android:c755d9d62e2f28c6ced9ca",
         "android_client_info": {
           "package_name": "com.example.wild_cat"
         }
@@ -15,7 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDvo7WST8lBqgzZkOPw712ju2Goz381cQg"
+          "current_key": "AIzaSyAthopdmyw2Bg6TurA_YDjEazLFWDUK-zE"
         }
       ],
       "services": {

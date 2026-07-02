@@ -30,10 +30,10 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyDvo7WST8lBqgzZkOPw712ju2Goz381cQg',
-    appId: '1:218415046771:android:e0b7fd96d9bc71f984ca06',
-    messagingSenderId: '218415046771',
-    projectId: 'wild-cat-watch',
-    storageBucket: 'wild-cat-watch.firebasestorage.app',
+    apiKey: 'AIzaSyAthopdmyw2Bg6TurA_YDjEazLFWDUK-zE',
+    appId: '1:530693945343:android:c755d9d62e2f28c6ced9ca',
+    messagingSenderId: '530693945343',
+    projectId: 'wild-cat-watch-1e4f2',
+    storageBucket: 'wild-cat-watch-1e4f2.firebasestorage.app',
   );
 }
