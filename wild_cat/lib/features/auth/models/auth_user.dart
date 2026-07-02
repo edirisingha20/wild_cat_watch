@@ -3,11 +3,13 @@ class AuthUser {
     required this.fullName,
     required this.username,
     required this.email,
-    required this.designation,
+    required this.departmentName,
+    required this.positionName,
   });
 
   final String fullName;
   final String username;
   final String email;
-  final String designation;
+  final String departmentName;
+  final String positionName;
 }

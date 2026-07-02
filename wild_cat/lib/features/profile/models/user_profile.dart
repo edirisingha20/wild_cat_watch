@@ -1,3 +1,5 @@
+import 'lookup_option.dart';
+
 class UserProfile {
   const UserProfile({
     required this.id,
@@ -5,8 +7,8 @@ class UserProfile {
     required this.email,
     required this.fullName,
     required this.birthday,
-    required this.designation,
-    required this.dateJoined,
+    required this.department,
+    required this.position,
   });
 
   final int id;
@@ -14,8 +16,8 @@ class UserProfile {
   final String email;
   final String fullName;
   final String? birthday;
-  final String designation;
-  final DateTime dateJoined;
+  final LookupOption? department;
+  final LookupOption? position;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -24,8 +26,12 @@ class UserProfile {
       email: json['email'] as String? ?? '',
       fullName: json['full_name'] as String? ?? '',
       birthday: json['birthday'] as String?,
-      designation: json['designation'] as String? ?? '',
-      dateJoined: DateTime.parse(json['date_joined'] as String),
+      department: json['department'] is Map<String, dynamic>
+          ? LookupOption.fromJson(Map<String, dynamic>.from(json['department'] as Map))
+          : null,
+      position: json['position'] is Map<String, dynamic>
+          ? LookupOption.fromJson(Map<String, dynamic>.from(json['position'] as Map))
+          : null,
     );
   }
 }

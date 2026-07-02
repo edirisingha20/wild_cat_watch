@@ -95,6 +95,8 @@ class ApiService {
     'auth/login/',
     'auth/register/',
     'token/refresh/',
+    'users/departments/',
+    'users/positions/',
   ];
 
   bool _isRefreshing = false;
