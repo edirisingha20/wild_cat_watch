@@ -9,6 +9,7 @@ class UserProfile {
     required this.birthday,
     required this.department,
     required this.position,
+    required this.sightingRadiusKm,
   });
 
   final int id;
@@ -18,6 +19,7 @@ class UserProfile {
   final String? birthday;
   final LookupOption? department;
   final LookupOption? position;
+  final double sightingRadiusKm;
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -32,6 +34,7 @@ class UserProfile {
       position: json['position'] is Map<String, dynamic>
           ? LookupOption.fromJson(Map<String, dynamic>.from(json['position'] as Map))
           : null,
+      sightingRadiusKm: (json['sighting_radius_km'] as num?)?.toDouble() ?? 5.0,
     );
   }
 }

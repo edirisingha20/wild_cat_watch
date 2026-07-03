@@ -5,8 +5,10 @@ import 'package:provider/provider.dart';
 import '../../services/api_service.dart';
 import '../../services/organization_service.dart';
 import '../../services/profile_service.dart';
+import '../../services/sightings_service.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
+import '../sightings/models/alert_model.dart';
 import 'models/lookup_option.dart';
 import 'models/user_profile.dart';
 
@@ -20,13 +22,146 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final ProfileService _profileService = ProfileService();
   final OrganizationService _organizationService = OrganizationService();
+  final SightingsService _sightingsService = SightingsService();
   late Future<UserProfile> _profileFuture;
+  late Future<List<Alert>> _mySightingsFuture;
   bool _isUpdating = false;
+  double? _radiusKm; // local slider value, seeded from the profile
+  bool _savingRadius = false;
 
   @override
   void initState() {
     super.initState();
     _profileFuture = _profileService.getProfile();
+    _mySightingsFuture = _sightingsService.fetchMySightings();
+  }
+
+  Future<void> _saveRadius(double radiusKm) async {
+    setState(() => _savingRadius = true);
+    final ScaffoldMessengerState messenger = ScaffoldMessenger.of(context);
+    try {
+      await _profileService.updateRadius(radiusKm);
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Alert radius set to ${radiusKm.round()} km')),
+      );
+    } on DioException catch (e) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            ApiService.buildErrorMessage(e, fallbackMessage: 'Failed to update radius'),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _savingRadius = false);
+    }
+  }
+
+  Widget _buildRadiusCard(UserProfile profile) {
+    final double radius = _radiusKm ??= profile.sightingRadiusKm;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                const Icon(Icons.my_location, size: 20),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Alert radius',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                Text('${radius.round()} km'),
+              ],
+            ),
+            const Text(
+              'You only see sightings and receive alerts within this distance.',
+              style: TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+            Slider(
+              value: radius.clamp(1, 50),
+              min: 1,
+              max: 50,
+              divisions: 49,
+              label: '${radius.round()} km',
+              onChanged: _savingRadius
+                  ? null
+                  : (double value) => setState(() => _radiusKm = value),
+              onChangeEnd: _savingRadius ? null : _saveRadius,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMySightings() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        const Text(
+          'My Reported Sightings',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        ),
+        const SizedBox(height: 8),
+        FutureBuilder<List<Alert>>(
+          future: _mySightingsFuture,
+          builder: (BuildContext context, AsyncSnapshot<List<Alert>> snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snapshot.hasError) {
+              return const Text('Failed to load your sightings.');
+            }
+            final List<Alert> sightings = snapshot.data ?? <Alert>[];
+            if (sightings.isEmpty) {
+              return const Text("You haven't reported any sightings yet.");
+            }
+            return Column(
+              children: sightings.map(_sightingTile).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _sightingTile(Alert alert) {
+    final bool verified = alert.isVerified;
+    final String date = alert.createdAt.toLocal().toString().split('.').first;
+    return Card(
+      child: ListTile(
+        leading: alert.image != null
+            ? ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: Image.network(
+                  alert.image!,
+                  width: 48,
+                  height: 48,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
+                ),
+              )
+            : const Icon(Icons.pets),
+        title: Text(alert.locationName),
+        subtitle: Text(date),
+        trailing: Chip(
+          label: Text(verified ? 'Verified' : 'Pending'),
+          backgroundColor:
+              verified ? Colors.green.shade100 : Colors.orange.shade100,
+          visualDensity: VisualDensity.compact,
+        ),
+      ),
+    );
   }
 
   Future<void> _showEditDialog(UserProfile profile) async {
@@ -335,47 +470,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
           return Consumer<AuthProvider>(
             builder: (BuildContext context, AuthProvider authProvider, Widget? _) {
-              return Padding(
+              return ListView(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: <Widget>[
-                    Text('Full Name: ${profile.fullName}'),
-                    const SizedBox(height: 8),
-                    Text('Username: ${profile.username}'),
-                    const SizedBox(height: 8),
-                    Text('Email: ${profile.email}'),
-                    const SizedBox(height: 8),
-                    Text('Birthday: ${profile.birthday ?? '-'}'),
-                    const SizedBox(height: 8),
-                    Text('Department: ${profile.department?.name ?? '-'}'),
-                    const SizedBox(height: 8),
-                    Text('Position: ${profile.position?.name ?? '-'}'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () => _showEditDialog(profile),
-                      child: const Text('Edit Profile'),
-                    ),
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: () async {
-                        await authProvider.logout();
+                children: <Widget>[
+                  Text('Full Name: ${profile.fullName}'),
+                  const SizedBox(height: 8),
+                  Text('Username: ${profile.username}'),
+                  const SizedBox(height: 8),
+                  Text('Email: ${profile.email}'),
+                  const SizedBox(height: 8),
+                  Text('Birthday: ${profile.birthday ?? '-'}'),
+                  const SizedBox(height: 8),
+                  Text('Department: ${profile.department?.name ?? '-'}'),
+                  const SizedBox(height: 8),
+                  Text('Position: ${profile.position?.name ?? '-'}'),
+                  const SizedBox(height: 16),
+                  _buildRadiusCard(profile),
+                  const SizedBox(height: 16),
+                  _buildMySightings(),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => _showEditDialog(profile),
+                    child: const Text('Edit Profile'),
+                  ),
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      await authProvider.logout();
 
-                        if (!context.mounted) {
-                          return;
-                        }
+                      if (!context.mounted) {
+                        return;
+                      }
 
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute<void>(
-                            builder: (_) => const LoginScreen(),
-                          ),
-                          (Route<dynamic> route) => false,
-                        );
-                      },
-                      child: const Text('Logout'),
-                    ),
-                  ],
-                ),
+                      Navigator.of(context).pushAndRemoveUntil(
+                        MaterialPageRoute<void>(
+                          builder: (_) => const LoginScreen(),
+                        ),
+                        (Route<dynamic> route) => false,
+                      );
+                    },
+                    child: const Text('Logout'),
+                  ),
+                ],
               );
             },
           );

@@ -4,6 +4,8 @@ from .models import LeopardSighting
 
 
 class LeopardSightingSerializer(serializers.ModelSerializer):
+    is_mine = serializers.SerializerMethodField()
+
     class Meta:
         model = LeopardSighting
         fields = [
@@ -14,8 +16,15 @@ class LeopardSightingSerializer(serializers.ModelSerializer):
             'location_name',
             'image',
             'created_at',
+            'status',
+            'is_mine',
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'created_at', 'status', 'is_mine']
+
+    def get_is_mine(self, obj):
+        request = self.context.get('request')
+        user = getattr(request, 'user', None)
+        return bool(user and user.is_authenticated and obj.user_id == user.id)
 
     def validate_latitude(self, value):
         if value < -90 or value > 90:
