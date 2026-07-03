@@ -10,6 +10,7 @@ from .serializers import (
     NearbyLeopardSightingSerializer,
     PublicLeopardSightingSerializer,
 )
+from .selectors.sighting_selectors import get_sightings_for_user
 from .services.sighting_service import (
     InvalidCoordinatesError,
     SightingServiceError,
@@ -30,6 +31,16 @@ class LeopardSightingListView(ListAPIView):
 
     def get_queryset(self):
         return get_recent_sightings()
+
+
+class MySightingsView(ListAPIView):
+    """The current user's own reported sightings (any status), newest first."""
+    serializer_class = LeopardSightingSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return get_sightings_for_user(self.request.user)
 
 
 class NearbySightingsView(APIView):
@@ -54,8 +65,16 @@ class NearbySightingsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Authenticated users see sightings within their chosen radius; anonymous
+        # callers fall back to the server-wide default.
+        radius_km = None
+        if request.user and request.user.is_authenticated:
+            radius_km = float(getattr(request.user, 'sighting_radius_km', None) or 5)
+
         try:
-            ordered_sightings, distance_map = get_nearby_sightings(user_lat, user_lng)
+            ordered_sightings, distance_map = get_nearby_sightings(
+                user_lat, user_lng, radius_km,
+            )
         except InvalidCoordinatesError as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         except SightingServiceError:

@@ -7,6 +7,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
+import '../../services/profile_service.dart';
 import '../../services/sightings_service.dart';
 import '../sightings/models/alert_model.dart';
 
@@ -37,6 +38,10 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final SightingsService _sightingsService = SightingsService();
   final LocationService _locationService = LocationService();
+  final ProfileService _profileService = ProfileService();
+
+  /// User's preferred alert radius (km); refreshed from the profile on load.
+  double _radiusKm = 5;
 
   /// Completer that resolves as soon as [GoogleMap.onMapCreated] fires.
   /// Awaiting this guarantees [animateCamera] is never called on a null
@@ -143,17 +148,44 @@ class _MapScreenState extends State<MapScreen> {
       }
     }
 
-    // ── 2. Fetch nearby sightings ─────────────────────────────────────────────
+    // ── 2. Fetch radius preference + nearby + own sightings ───────────────────
     try {
+      // Preferred radius drives the single "alert zone" circle.
+      try {
+        final profile = await _profileService.getProfile();
+        _radiusKm = profile.sightingRadiusKm;
+      } catch (_) {
+        // Non-fatal — keep the previous/default radius.
+      }
+
       final List<Alert> nearby = await _sightingsService.fetchNearbySightings(
         latitude: queryLatLng.latitude,
         longitude: queryLatLng.longitude,
       );
 
+      // Own reports (any status) — lets us show the user's last-7-day sightings
+      // in a distinct colour, even if pending or just outside the radius.
+      List<Alert> mine = <Alert>[];
+      try {
+        mine = await _sightingsService.fetchMySightings();
+      } catch (_) {
+        // Non-fatal: skip the own-sightings overlay if unavailable.
+      }
+
       if (!mounted) return;
 
+      final int? focusId = widget.focusAlert?.id;
+
+      // De-duplicate by id; own recent reports take precedence for colouring.
+      final Map<int, Alert> byId = <int, Alert>{};
+      for (final Alert a in nearby) {
+        byId[a.id] = a;
+      }
+      for (final Alert a in mine.where((Alert a) => a.isRecentlyMine)) {
+        byId[a.id] = a;
+      }
+
       final Set<Marker> markers = <Marker>{};
-      final Set<Circle> circles = <Circle>{};
 
       // User location marker (normal mode, GPS succeeded).
       if (gpsAvailable) {
@@ -169,73 +201,63 @@ class _MapScreenState extends State<MapScreen> {
         );
       }
 
-      // Build sighting markers and danger circles.
-      final int? focusId = widget.focusAlert?.id;
-      for (final Alert alert in nearby) {
-        final bool isFocus = alert.id == focusId;
+      // Colour-coded sighting markers: green = your recent report, red = others.
+      for (final Alert alert in byId.values) {
+        final bool ownRecent = alert.isRecentlyMine;
         markers.add(
           Marker(
             markerId: MarkerId(alert.id.toString()),
             position: LatLng(alert.latitude, alert.longitude),
-            icon: isFocus
-                ? BitmapDescriptor.defaultMarkerWithHue(
-                    BitmapDescriptor.hueRed,
-                  )
-                : BitmapDescriptor.defaultMarker,
+            icon: BitmapDescriptor.defaultMarkerWithHue(
+              ownRecent ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueRed,
+            ),
             infoWindow: InfoWindow(
-              title: isFocus ? '📍 This Sighting' : 'Leopard Alert',
+              title: ownRecent
+                  ? 'My Report${alert.isPending ? ' (Pending)' : ''}'
+                  : (alert.id == focusId ? '📍 This Sighting' : 'Leopard Alert'),
               snippet: alert.locationName,
             ),
           ),
         );
-        circles.add(
-          Circle(
-            circleId: CircleId(alert.id.toString()),
-            center: LatLng(alert.latitude, alert.longitude),
-            radius: kNearbySightingRadiusMeters,
-            fillColor: Colors.red.withValues(
-              alpha: isFocus ? 0.15 : 0.08,
-            ),
-            strokeColor: isFocus ? Colors.red : Colors.redAccent,
-            strokeWidth: isFocus ? 3 : 2,
-          ),
-        );
       }
 
-      // Edge-case: focus alert is outside the 5 km radius of itself — impossible
-      // in practice but handled defensively so the marker is never missing.
-      if (focusId != null && !nearby.any((Alert a) => a.id == focusId)) {
+      // Ensure the focused sighting is always shown, even if out of range.
+      if (focusId != null && !byId.containsKey(focusId)) {
         final Alert fa = widget.focusAlert!;
         markers.add(
           Marker(
             markerId: MarkerId(fa.id.toString()),
             position: LatLng(fa.latitude, fa.longitude),
-            icon: BitmapDescriptor.defaultMarkerWithHue(
-              BitmapDescriptor.hueRed,
-            ),
+            icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
             infoWindow: InfoWindow(
               title: '📍 This Sighting',
               snippet: fa.locationName,
             ),
           ),
         );
-        circles.add(
-          Circle(
-            circleId: CircleId(fa.id.toString()),
-            center: LatLng(fa.latitude, fa.longitude),
-            radius: kNearbySightingRadiusMeters,
-            fillColor: Colors.red.withValues(alpha: 0.15),
-            strokeColor: Colors.red,
-            strokeWidth: 3,
-          ),
-        );
       }
+
+      // Single "alert zone" circle (your radius), centred on you — or on the
+      // sighting in focus mode. Replaces the old cluttered per-sighting circles.
+      final LatLng circleCenter = _isFocusMode
+          ? LatLng(widget.focusAlert!.latitude, widget.focusAlert!.longitude)
+          : queryLatLng;
+      final Set<Circle> circles = <Circle>{
+        Circle(
+          circleId: const CircleId('alert_zone'),
+          center: circleCenter,
+          radius: _radiusKm * 1000,
+          fillColor: Colors.red.withValues(alpha: 0.08),
+          strokeColor: Colors.redAccent,
+          strokeWidth: 2,
+        ),
+      };
 
       setState(() {
         _currentPosition = gpsAvailable ? queryLatLng : null;
         _markers = markers;
         _circles = circles;
-        _hasNearbySightings = nearby.isNotEmpty || focusId != null;
+        _hasNearbySightings = byId.isNotEmpty || focusId != null;
         _isLoading = false;
       });
 

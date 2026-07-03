@@ -69,7 +69,7 @@ def send_nearby_alert(sighting):
         )
         return 0
 
-    radius_km = float(getattr(settings, 'NEARBY_SIGHTING_RADIUS_KM', 5))
+    default_radius_km = float(getattr(settings, 'NEARBY_SIGHTING_RADIUS_KM', 5))
     max_age_minutes = int(getattr(
         settings, 'USER_LOCATION_MAX_AGE_MINUTES', _USER_LOCATION_MAX_AGE_MINUTES,
     ))
@@ -107,7 +107,11 @@ def send_nearby_alert(sighting):
             sighting.longitude,
         )
 
-        if distance > radius_km:
+        # Each recipient only gets alerts within their own chosen radius.
+        recipient_radius_km = float(
+            getattr(user_location.user, 'sighting_radius_km', None) or default_radius_km
+        )
+        if distance > recipient_radius_km:
             continue
 
         for token in token_by_user_id.get(user_location.user_id, []):

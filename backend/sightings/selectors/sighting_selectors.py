@@ -17,6 +17,11 @@ def get_recent_sightings():
     return get_verified_sightings().order_by('-created_at')
 
 
+def get_sightings_for_user(user):
+    """All sightings reported by a user (any status), newest first."""
+    return get_all_sightings().filter(user=user).order_by('-created_at')
+
+
 def _bounding_box(latitude, longitude, radius_km):
     """Return (min_lat, max_lat, min_lng, max_lng) for a rough bounding box."""
     delta_lat = radius_km / 111.0

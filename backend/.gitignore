@@ -9,3 +9,15 @@ firebase_service_account.*.json
 # Python cache
 __pycache__/
 *.py[cod]
+
+# PyInstaller build artifacts. The built exe embeds the Firebase service
+# account secret, so it must never be committed.
+build/
+dist/
+*.spec
+
+# Standalone server's runtime data (SQLite DB, uploaded media, secret key).
+WildCatServerData/
+
+# User-uploaded sighting images (dev).
+media/

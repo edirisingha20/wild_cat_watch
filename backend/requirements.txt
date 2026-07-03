@@ -10,3 +10,5 @@ python-dotenv
 firebase-admin
 django-cors-headers
 zeroconf
+waitress
+whitenoise

@@ -29,6 +29,18 @@ class SightingsService {
         .toList();
   }
 
+  /// The current user's own reported sightings (any status), newest first.
+  Future<List<Alert>> fetchMySightings() async {
+    final response = await _api.get('sightings/mine/');
+    final List<dynamic> data = response.data as List<dynamic>;
+    return data
+        .map(
+          (dynamic json) =>
+              Alert.fromJson(Map<String, dynamic>.from(json as Map)),
+        )
+        .toList();
+  }
+
   Future<List<Alert>> fetchNearbySightings({
     required double latitude,
     required double longitude,

@@ -29,4 +29,13 @@ class ProfileService {
 
     return UserProfile.fromJson(Map<String, dynamic>.from(response.data as Map));
   }
+
+  /// Updates only the preferred sighting radius (km).
+  Future<UserProfile> updateRadius(double radiusKm) async {
+    final Response<dynamic> response = await _apiService.patch(
+      'users/me/',
+      data: <String, dynamic>{'sighting_radius_km': radiusKm},
+    );
+    return UserProfile.fromJson(Map<String, dynamic>.from(response.data as Map));
+  }
 }

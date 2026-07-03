@@ -60,6 +60,8 @@ class User(AbstractUser):
         related_name='users',
     )
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_USER)
+    # Preferred radius (km) for viewing nearby sightings and receiving alerts.
+    sighting_radius_km = models.FloatField(default=5)
 
     def __str__(self):
         return self.username

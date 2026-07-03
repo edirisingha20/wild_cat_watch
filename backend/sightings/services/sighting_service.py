@@ -42,6 +42,11 @@ def create_sighting(user, description, latitude, longitude, image, location_name
     except Exception as exc:
         raise SightingServiceError(f'Failed to create sighting: {exc}') from exc
 
+    # Real-time alerting: authorized officers are trusted, so verify and notify
+    # immediately unless manual moderation is explicitly enabled.
+    if getattr(settings, 'AUTO_VERIFY_SIGHTINGS', True):
+        verify_sighting(sighting)
+
     return sighting
 
 
@@ -69,9 +74,10 @@ def get_recent_sightings():
     return select_recent_sightings()
 
 
-def get_nearby_sightings(latitude, longitude):
+def get_nearby_sightings(latitude, longitude, radius_km=None):
     _validate_coordinates(latitude, longitude)
-    radius_km = float(getattr(settings, 'NEARBY_SIGHTING_RADIUS_KM', 5))
+    if radius_km is None:
+        radius_km = float(getattr(settings, 'NEARBY_SIGHTING_RADIUS_KM', 5))
     return select_nearby_sightings(latitude, longitude, radius_km)
 
 

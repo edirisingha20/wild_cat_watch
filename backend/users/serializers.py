@@ -179,8 +179,14 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'position',
             'department_id',
             'position_id',
+            'sighting_radius_km',
         ]
         read_only_fields = ['id', 'username', 'email', 'department', 'position']
+
+    def validate_sighting_radius_km(self, value):
+        if value < 1 or value > 50:
+            raise serializers.ValidationError('Radius must be between 1 and 50 km.')
+        return value
 
     def validate(self, attrs):
         department = attrs.get('department', getattr(self.instance, 'department', None))
@@ -197,7 +203,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         department = validated_data.pop('department', instance.department)
         position = validated_data.pop('position', instance.position)
 
-        for field in ['full_name', 'birthday']:
+        for field in ['full_name', 'birthday', 'sighting_radius_km']:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
 
@@ -205,6 +211,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.position = position
         instance.designation = position.name if position is not None else ''
 
-        update_fields = ['full_name', 'birthday', 'department', 'position', 'designation']
+        update_fields = [
+            'full_name', 'birthday', 'department', 'position', 'designation',
+            'sighting_radius_km',
+        ]
         instance.save(update_fields=update_fields)
         return instance
