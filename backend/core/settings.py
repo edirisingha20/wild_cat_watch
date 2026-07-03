@@ -20,6 +20,15 @@ from core.security import resolve_jwt_signing_key, resolve_secret_key
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / '.env')
 
+# Writable data directory. In normal dev this is the project folder; the
+# packaged double-click server (standalone_server.py) points it at a
+# user-writable folder next to the .exe so the SQLite DB and uploaded media
+# have somewhere to live.
+DATA_DIR = Path(os.getenv('WILDCAT_DATA_DIR', str(BASE_DIR)))
+
+# True when running as the packaged standalone server.
+STANDALONE = os.getenv('WILDCAT_STANDALONE', '').strip().lower() in ('1', 'true', 'yes', 'on')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
@@ -87,19 +96,29 @@ WSGI_APPLICATION = 'core.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': os.getenv('DB_NAME', 'leopard_db'),
-        'USER': os.getenv('DB_USER', 'root'),
-        'PASSWORD': os.getenv('DB_PASSWORD', ''),
-        'HOST': os.getenv('DB_HOST', 'localhost'),
-        'PORT': os.getenv('DB_PORT', '3306'),
-        'OPTIONS': {
-            'charset': 'utf8mb4',
-        },
+# Database engine is selectable: MySQL for development (default), SQLite for
+# the zero-install packaged server (DB_ENGINE=sqlite).
+if os.getenv('DB_ENGINE', 'mysql').strip().lower() == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': str(DATA_DIR / 'db.sqlite3'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': os.getenv('DB_NAME', 'leopard_db'),
+            'USER': os.getenv('DB_USER', 'root'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '3306'),
+            'OPTIONS': {
+                'charset': 'utf8mb4',
+            },
+        }
+    }
 
 
 # Password validation
@@ -137,8 +156,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = DATA_DIR / 'staticfiles'
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = DATA_DIR / 'media'
+
+# In the packaged server there is no separate web server, so WhiteNoise serves
+# the Django admin / DRF static files straight from the WSGI app. USE_FINDERS
+# lets it do so without a collectstatic step.
+if STANDALONE:
+    MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
+    WHITENOISE_USE_FINDERS = True
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -175,7 +202,16 @@ FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '').strip() o
 NEARBY_SIGHTING_RADIUS_KM = float(os.getenv('NEARBY_SIGHTING_RADIUS_KM', '5'))
 
 # Maximum age (minutes) for a user location to be considered fresh for notifications.
-USER_LOCATION_MAX_AGE_MINUTES = int(os.getenv('USER_LOCATION_MAX_AGE_MINUTES', '30'))
+# Widened from 30 min so users who briefly closed the app still receive alerts;
+# the app also refreshes location periodically while open.
+USER_LOCATION_MAX_AGE_MINUTES = int(os.getenv('USER_LOCATION_MAX_AGE_MINUTES', '120'))
+
+# Auto-verify newly reported sightings so nearby users are alerted in real time.
+# The reporters are authorized officers, so manual moderation is optional. Set to
+# False to require an admin to verify sightings before alerts are sent.
+AUTO_VERIFY_SIGHTINGS = os.getenv('AUTO_VERIFY_SIGHTINGS', 'True').strip().lower() in (
+    '1', 'true', 'yes', 'on',
+)
 
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^http://localhost(:\d+)?$',

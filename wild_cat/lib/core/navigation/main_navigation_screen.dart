@@ -30,6 +30,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   late int _currentIndex;
   StreamSubscription<void>? _notifOpenedSub;
+  Timer? _locationTimer;
+
+  /// How often to refresh the user's location while the app is open, so the
+  /// backend keeps a fresh location for delivering nearby alerts.
+  static const Duration _locationRefreshInterval = Duration(minutes: 5);
 
   late final List<Widget> _screens = <Widget>[
     const HomeScreen(),
@@ -53,11 +58,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _updateUserLocationOnEntry();
       _registerDeviceTokenOnEntry();
     });
+
+    // Keep the backend's copy of the user's location fresh while the app is
+    // open so they remain eligible for nearby alerts.
+    _locationTimer = Timer.periodic(
+      _locationRefreshInterval,
+      (_) => _updateUserLocationOnEntry(silent: true),
+    );
   }
 
   @override
   void dispose() {
     _notifOpenedSub?.cancel();
+    _locationTimer?.cancel();
     super.dispose();
   }
 
@@ -94,7 +107,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  Future<void> _updateUserLocationOnEntry() async {
+  Future<void> _updateUserLocationOnEntry({bool silent = false}) async {
     try {
       final Position position = await _locationService.getCurrentLocation();
       debugPrint('User location: ${position.latitude} , ${position.longitude}');
@@ -103,16 +116,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         longitude: position.longitude,
       );
     } on LocationServiceException catch (e) {
-      _showMessage(e.message);
+      if (!silent) _showMessage(e.message);
     } on DioException catch (e) {
-      _showMessage(
-        ApiService.buildErrorMessage(
-          e,
-          fallbackMessage: 'Failed to update user location',
-        ),
-      );
+      if (!silent) {
+        _showMessage(
+          ApiService.buildErrorMessage(
+            e,
+            fallbackMessage: 'Failed to update user location',
+          ),
+        );
+      }
     } catch (_) {
-      _showMessage('Failed to update user location');
+      if (!silent) _showMessage('Failed to update user location');
     }
   }
 

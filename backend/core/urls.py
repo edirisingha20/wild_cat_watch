@@ -16,8 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.conf import settings
-from django.conf.urls.static import static
-from django.urls import include, path
+from django.urls import include, path, re_path
+from django.views.static import serve as media_serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
 urlpatterns = [
@@ -28,5 +28,13 @@ urlpatterns = [
     path('api/users/', include('users.urls')),
 ]
 
-if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+# Serve uploaded sighting images in every mode. Django's static() helper only
+# serves media when DEBUG=True, which would leave images broken in the packaged
+# (DEBUG=False) standalone server, so wire the media view up explicitly.
+urlpatterns += [
+    re_path(
+        r'^media/(?P<path>.*)$',
+        media_serve,
+        {'document_root': settings.MEDIA_ROOT},
+    ),
+]

@@ -3,6 +3,7 @@ from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from PIL import Image
 from rest_framework import status
 from rest_framework.test import APITestCase
@@ -28,6 +29,7 @@ def generate_test_image(fmt='PNG', content_type='image/png'):
 
 
 class SightingApiTests(APITestCase):
+    @override_settings(AUTO_VERIFY_SIGHTINGS=False)
     def test_report_sighting(self):
         user = User.objects.create_user(
             username='report_user',
@@ -50,6 +52,32 @@ class SightingApiTests(APITestCase):
         self.assertEqual(LeopardSighting.objects.count(), 1)
         self.assertEqual(LeopardSighting.objects.get().status, LeopardSighting.STATUS_PENDING)
 
+    @override_settings(AUTO_VERIFY_SIGHTINGS=True)
+    @patch('sightings.services.sighting_service.send_nearby_alert')
+    def test_report_sighting_auto_verifies_and_notifies(self, send_nearby_alert_mock):
+        user = User.objects.create_user(
+            username='auto_verify_user',
+            email='auto_verify_user@example.com',
+            password='Pass1234!',
+        )
+        self.client.force_authenticate(user=user)
+
+        payload = {
+            'description': 'Leopard near tea estate',
+            'latitude': 6.987,
+            'longitude': 80.762,
+            'location_name': 'Maskeliya',
+            'image': generate_test_image(),
+        }
+
+        response = self.client.post('/api/sightings/report/', payload, format='multipart')
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        sighting = LeopardSighting.objects.get()
+        self.assertEqual(sighting.status, LeopardSighting.STATUS_VERIFIED)
+        send_nearby_alert_mock.assert_called_once_with(sighting)
+
+    @override_settings(AUTO_VERIFY_SIGHTINGS=False)
     @patch('sightings.services.sighting_service.send_nearby_alert')
     def test_report_sighting_does_not_notify_pending_sighting(self, send_nearby_alert_mock):
         user = User.objects.create_user(
