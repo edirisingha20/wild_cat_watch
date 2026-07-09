@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/navigation/main_navigation_screen.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
 import '../../services/sightings_service.dart';
@@ -27,6 +29,14 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
   double? _longitude;
   bool _isSubmitting = false;
   bool _isFetchingLocation = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto-capture location so the officer sees an up-to-date GPS fix without
+    // an extra tap. They can still refresh it manually below.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _captureLocation());
+  }
 
   @override
   void dispose() {
@@ -60,6 +70,7 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
 
     try {
       final position = await _locationService.getCurrentLocation();
+      if (!mounted) return;
       setState(() {
         _latitude = position.latitude;
         _longitude = position.longitude;
@@ -78,12 +89,13 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
   }
 
   Future<void> _submit() async {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
     if (_selectedImage == null) {
-      _showSnackBar('Please select an image');
+      _showSnackBar('Please add a photo of the sighting');
       return;
     }
 
@@ -109,7 +121,7 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
         return;
       }
 
-      _showSnackBar('Sighting report submitted');
+      _showSnackBar('Sighting reported successfully', success: true);
       if (Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       } else {
@@ -137,8 +149,13 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
     }
   }
 
-  void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _showSnackBar(String message, {bool success = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: success ? AppColors.success : null,
+        content: Text(message),
+      ),
+    );
   }
 
   String _buildLocationName(double latitude, double longitude) {
@@ -147,97 +164,324 @@ class _ReportSightingScreenState extends State<ReportSightingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool hasLocation = _latitude != null && _longitude != null;
     return Scaffold(
       appBar: AppBar(title: const Text('Report Sighting')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Container(
-                width: double.infinity,
-                height: 220,
-                color: Colors.grey.shade200,
-                alignment: Alignment.center,
-                child: _selectedImage == null
-                    ? const Text('No image selected')
-                    : Image.file(_selectedImage!, fit: BoxFit.cover),
-              ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  OutlinedButton(
+                  _buildImageCard(),
+                  AppSpacing.gapLg,
+                  _buildLocationCard(hasLocation),
+                  AppSpacing.gapLg,
+                  _buildDescriptionCard(),
+                  const SizedBox(height: AppSpacing.xl),
+                  ElevatedButton.icon(
+                    onPressed: _isSubmitting ? null : _submit,
+                    icon: _isSubmitting
+                        ? const SizedBox.shrink()
+                        : const Icon(Icons.send_outlined),
+                    label: _isSubmitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
+                          )
+                        : const Text('Submit Report'),
+                  ),
+                  AppSpacing.gapSm,
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Image upload card ──────────────────────────────────────────────────────
+
+  Widget _buildImageCard() {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _cardHeader(Icons.photo_camera_outlined, 'Sighting Photo'),
+            AppSpacing.gapMd,
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              child: _selectedImage == null
+                  ? DottedPlaceholder(
+                      onTap: _isSubmitting
+                          ? null
+                          : () => _pickImage(ImageSource.camera),
+                    )
+                  : Stack(
+                      children: <Widget>[
+                        Image.file(
+                          _selectedImage!,
+                          width: double.infinity,
+                          height: 200,
+                          fit: BoxFit.cover,
+                        ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: CircleAvatar(
+                            backgroundColor: Colors.black54,
+                            radius: 18,
+                            child: IconButton(
+                              icon: const Icon(Icons.close,
+                                  size: 18, color: Colors.white),
+                              onPressed: _isSubmitting
+                                  ? null
+                                  : () =>
+                                      setState(() => _selectedImage = null),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+            ),
+            AppSpacing.gapMd,
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: OutlinedButton.icon(
                     onPressed: _isSubmitting
                         ? null
                         : () => _pickImage(ImageSource.camera),
-                    child: const Text('Capture Image'),
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text('Camera'),
                   ),
-                  OutlinedButton(
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: OutlinedButton.icon(
                     onPressed: _isSubmitting
                         ? null
                         : () => _pickImage(ImageSource.gallery),
-                    child: const Text('Pick From Gallery'),
+                    icon: const Icon(Icons.photo_library_outlined),
+                    label: const Text('Gallery'),
                   ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: <Widget>[
-                  Expanded(
-                    child: Text(
-                      _latitude == null || _longitude == null
-                          ? 'Location: Not captured'
-                          : 'Location: ${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}',
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  OutlinedButton(
-                    onPressed:
-                        _isSubmitting || _isFetchingLocation ? null : _captureLocation,
-                    child: _isFetchingLocation
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Get Location'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                controller: _descriptionController,
-                maxLines: 4,
-                decoration: const InputDecoration(
-                  labelText: 'Description',
-                  border: OutlineInputBorder(),
                 ),
-                validator: (String? value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Description is required';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _isSubmitting ? null : _submit,
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Text('Submit'),
-                ),
+              ],
+            ),
+            if (_selectedImage == null) ...<Widget>[
+              AppSpacing.gapSm,
+              Text(
+                'A clear photo helps officers verify the sighting.',
+                style:
+                    text.bodySmall?.copyWith(color: AppColors.textSecondary),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── GPS status card ────────────────────────────────────────────────────────
+
+  Widget _buildLocationCard(bool hasLocation) {
+    final TextTheme text = Theme.of(context).textTheme;
+    final Color statusColor = _isFetchingLocation
+        ? AppColors.amber
+        : (hasLocation ? AppColors.success : AppColors.danger);
+    final String statusLabel = _isFetchingLocation
+        ? 'Locating…'
+        : (hasLocation ? 'Location captured' : 'Location unavailable');
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            Row(
+              children: <Widget>[
+                Expanded(
+                  child: _cardHeader(Icons.my_location_outlined, 'GPS Location'),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      if (_isFetchingLocation)
+                        SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(statusColor),
+                          ),
+                        )
+                      else
+                        Icon(
+                          hasLocation ? Icons.check_circle : Icons.error_outline,
+                          size: 14,
+                          color: statusColor,
+                        ),
+                      const SizedBox(width: 5),
+                      Text(
+                        statusLabel,
+                        style: text.labelMedium?.copyWith(
+                          color: statusColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            AppSpacing.gapMd,
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+              ),
+              child: Row(
+                children: <Widget>[
+                  const Icon(Icons.place_outlined,
+                      size: 18, color: AppColors.forestGreen),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      hasLocation
+                          ? '${_latitude!.toStringAsFixed(5)},  ${_longitude!.toStringAsFixed(5)}'
+                          : 'Coordinates will appear here',
+                      style: text.bodyMedium?.copyWith(
+                        color: hasLocation
+                            ? AppColors.textPrimary
+                            : AppColors.textSecondary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AppSpacing.gapMd,
+            OutlinedButton.icon(
+              onPressed:
+                  _isSubmitting || _isFetchingLocation ? null : _captureLocation,
+              icon: const Icon(Icons.refresh),
+              label: Text(hasLocation ? 'Update Location' : 'Get Location'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Description card ───────────────────────────────────────────────────────
+
+  Widget _buildDescriptionCard() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: <Widget>[
+            _cardHeader(Icons.description_outlined, 'Description'),
+            AppSpacing.gapMd,
+            TextFormField(
+              controller: _descriptionController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                hintText:
+                    'Describe the sighting — behaviour, surroundings, any risk…',
+              ),
+              validator: (String? value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Description is required';
+                }
+                return null;
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _cardHeader(IconData icon, String title) {
+    return Row(
+      children: <Widget>[
+        Icon(icon, size: 20, color: AppColors.forestGreen),
+        const SizedBox(width: AppSpacing.sm),
+        Text(
+          title,
+          style: Theme.of(context)
+              .textTheme
+              .titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Dotted image placeholder ──────────────────────────────────────────────────
+
+class DottedPlaceholder extends StatelessWidget {
+  const DottedPlaceholder({super.key, this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          color: AppColors.oliveLight,
+          borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: AppColors.forestGreenLight,
+            width: 1.5,
           ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            const Icon(Icons.add_a_photo_outlined,
+                size: 40, color: AppColors.forestGreen),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Tap to add a photo',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.forestGreen,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
         ),
       ),
     );

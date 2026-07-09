@@ -5,6 +5,9 @@ from rest_framework.response import Response
 from rest_framework.throttling import UserRateThrottle
 from rest_framework.views import APIView
 
+from users.permissions import IsAppAdmin
+
+from .models import LeopardSighting
 from .serializers import (
     LeopardSightingSerializer,
     NearbyLeopardSightingSerializer,
@@ -34,7 +37,7 @@ class LeopardSightingListView(ListAPIView):
 
 
 class MySightingsView(ListAPIView):
-    """The current user's own reported sightings (any status), newest first."""
+    """The current user's own reported sightings, newest first."""
     serializer_class = LeopardSightingSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = None
@@ -97,6 +100,22 @@ class NearbySightingsView(APIView):
             },
         )
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class AdminSightingDeleteView(APIView):
+    """Delete a reported sighting. Admin only."""
+
+    permission_classes = [IsAppAdmin]
+
+    def delete(self, request, pk):
+        sighting = LeopardSighting.objects.filter(pk=pk).first()
+        if sighting is None:
+            return Response(
+                {'detail': 'Sighting not found.'},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        sighting.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ReportSightingRateThrottle(UserRateThrottle):

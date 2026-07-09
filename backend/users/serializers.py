@@ -180,8 +180,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'department_id',
             'position_id',
             'sighting_radius_km',
+            'role',
         ]
-        read_only_fields = ['id', 'username', 'email', 'department', 'position']
+        read_only_fields = ['id', 'username', 'email', 'department', 'position', 'role']
 
     def validate_sighting_radius_km(self, value):
         if value < 1 or value > 50:
@@ -217,3 +218,31 @@ class UserProfileSerializer(serializers.ModelSerializer):
         ]
         instance.save(update_fields=update_fields)
         return instance
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """User representation for in-app admin management.
+
+    Admins may change the fields listed as writable; identity fields are
+    read-only so accounts stay linked to their original owner."""
+
+    department = DepartmentSerializer(read_only=True)
+    position = PositionSerializer(read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'username',
+            'email',
+            'full_name',
+            'birthday',
+            'department',
+            'position',
+            'role',
+            'is_active',
+            'date_joined',
+        ]
+        read_only_fields = [
+            'id', 'username', 'email', 'department', 'position', 'date_joined',
+        ]

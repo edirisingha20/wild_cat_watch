@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/widgets/app_badge.dart';
+import '../../core/widgets/info_tile.dart';
 import '../map/map_screen.dart';
 import '../sightings/models/alert_model.dart';
 
@@ -10,85 +14,108 @@ class AlertDetailsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
     return Scaffold(
-      appBar: AppBar(title: const Text('Alert Details')),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            // ── Hero image ─────────────────────────────────────────────────
-            _AlertImage(imageUrl: alert.image),
-
-            // ── Content ────────────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.all(16),
+      body: CustomScrollView(
+        slivers: <Widget>[
+          SliverAppBar(
+            expandedHeight: 280,
+            pinned: true,
+            stretch: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: _AlertImage(imageUrl: alert.image),
+            ),
+          ),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: <Widget>[
-                  Text(
-                    alert.description,
-                    style: Theme.of(context).textTheme.bodyLarge,
+                  Row(
+                    children: <Widget>[
+                      const Icon(Icons.location_on,
+                          color: AppColors.forestGreen),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Text(alert.locationName, style: text.titleLarge),
+                      ),
+                      if (alert.isMine)
+                        const AppBadge(
+                          label: 'Your report',
+                          color: AppColors.olive,
+                          icon: Icons.person_outline,
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  AppSpacing.gapLg,
+
+                  // Description card
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.lg),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text(
+                            'DESCRIPTION',
+                            style: text.labelSmall?.copyWith(
+                              color: AppColors.textSecondary,
+                              letterSpacing: 0.6,
+                            ),
+                          ),
+                          AppSpacing.gapSm,
+                          Text(alert.description, style: text.bodyLarge),
+                        ],
+                      ),
+                    ),
+                  ),
+                  AppSpacing.gapLg,
 
                   // Info card
                   Card(
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                      ),
-                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 4,
+                        horizontal: AppSpacing.lg,
                       ),
                       child: Column(
                         children: <Widget>[
-                          _InfoRow(
-                            icon: Icons.location_on_outlined,
+                          InfoTile(
+                            icon: Icons.place_outlined,
                             label: 'Location',
                             value: alert.locationName,
                           ),
                           const Divider(height: 1),
-                          _InfoRow(
+                          InfoTile(
                             icon: Icons.access_time_outlined,
                             label: 'Reported',
                             value: _formatDateTime(alert.createdAt),
                           ),
                           const Divider(height: 1),
-                          _InfoRow(
+                          InfoTile(
                             icon: Icons.gps_fixed,
                             label: 'Coordinates',
                             value:
-                                '${alert.latitude.toStringAsFixed(5)},  '
+                                '${alert.latitude.toStringAsFixed(5)}, '
                                 '${alert.longitude.toStringAsFixed(5)}',
                           ),
                         ],
                       ),
                     ),
                   ),
+                  const SizedBox(height: AppSpacing.xl),
 
-                  const SizedBox(height: 20),
-
-                  // ── "View on Map" button ──────────────────────────────────
-                  SizedBox(
-                    width: double.infinity,
-                    child: FilledButton.icon(
-                      onPressed: () => _openOnMap(context),
-                      icon: const Icon(Icons.map_outlined),
-                      label: const Text('View on Map'),
-                    ),
+                  FilledButton.icon(
+                    onPressed: () => _openOnMap(context),
+                    icon: const Icon(Icons.map_outlined),
+                    label: const Text('View on Map'),
                   ),
-
-                  const SizedBox(height: 8),
+                  AppSpacing.gapSm,
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -107,7 +134,7 @@ class AlertDetailsScreen extends StatelessWidget {
     final String dd = local.day.toString().padLeft(2, '0');
     final String hh = local.hour.toString().padLeft(2, '0');
     final String mi = local.minute.toString().padLeft(2, '0');
-    return '${local.year}-$mo-$dd   $hh:$mi';
+    return '${local.year}-$mo-$dd  •  $hh:$mi';
   }
 }
 
@@ -126,7 +153,6 @@ class _AlertImage extends StatelessWidget {
     return Image.network(
       imageUrl!,
       width: double.infinity,
-      height: 260,
       fit: BoxFit.cover,
       loadingBuilder: (_, Widget child, ImageChunkEvent? progress) {
         if (progress == null) return child;
@@ -139,8 +165,7 @@ class _AlertImage extends StatelessWidget {
   Widget _placeholder({bool loading = false, bool error = false}) {
     return Container(
       width: double.infinity,
-      height: 260,
-      color: Colors.grey.shade200,
+      color: AppColors.oliveLight,
       alignment: Alignment.center,
       child: loading
           ? const CircularProgressIndicator()
@@ -150,65 +175,17 @@ class _AlertImage extends StatelessWidget {
                 Icon(
                   error
                       ? Icons.broken_image_outlined
-                      : Icons.image_not_supported_outlined,
+                      : Icons.pets,
                   size: 56,
-                  color: Colors.grey.shade400,
+                  color: AppColors.forestGreenLight,
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: AppSpacing.sm),
                 Text(
                   error ? 'Image unavailable' : 'No image',
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: const TextStyle(color: AppColors.textSecondary),
                 ),
               ],
             ),
-    );
-  }
-}
-
-// ── Info row ──────────────────────────────────────────────────────────────────
-
-class _InfoRow extends StatelessWidget {
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final ColorScheme colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Icon(icon, size: 20, color: colors.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        letterSpacing: 0.5,
-                      ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

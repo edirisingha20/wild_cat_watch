@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
 import '../../services/api_service.dart';
 import '../../services/location_service.dart';
 import '../../services/profile_service.dart';
@@ -163,8 +165,8 @@ class _MapScreenState extends State<MapScreen> {
         longitude: queryLatLng.longitude,
       );
 
-      // Own reports (any status) — lets us show the user's last-7-day sightings
-      // in a distinct colour, even if pending or just outside the radius.
+      // Own reports — lets us show the user's last-7-day sightings in a
+      // distinct colour, even if just outside the radius.
       List<Alert> mine = <Alert>[];
       try {
         mine = await _sightingsService.fetchMySightings();
@@ -213,7 +215,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
             infoWindow: InfoWindow(
               title: ownRecent
-                  ? 'My Report${alert.isPending ? ' (Pending)' : ''}'
+                  ? 'My Report'
                   : (alert.id == focusId ? '📍 This Sighting' : 'Leopard Alert'),
               snippet: alert.locationName,
             ),
@@ -362,6 +364,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
             myLocationEnabled: _currentPosition != null,
             myLocationButtonEnabled: _currentPosition != null,
+            padding: const EdgeInsets.only(bottom: 96, top: 8),
             onMapCreated: (GoogleMapController controller) {
               // Complete the Completer so any pending animateCamera call
               // that was already awaiting it will proceed immediately.
@@ -376,15 +379,38 @@ class _MapScreenState extends State<MapScreen> {
           // ── Loading overlay ──────────────────────────────────────────────────
           if (_isLoading)
             Container(
-              color: Colors.black12,
+              color: Colors.black.withValues(alpha: 0.12),
               alignment: Alignment.center,
-              child: const CircularProgressIndicator(),
+              child: Container(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  boxShadow: const <BoxShadow>[
+                    BoxShadow(color: Colors.black26, blurRadius: 12),
+                  ],
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: <Widget>[
+                    SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                    SizedBox(width: AppSpacing.md),
+                    Text('Loading sightings…'),
+                  ],
+                ),
+              ),
             ),
 
           // ── Status banners ───────────────────────────────────────────────────
           if (_errorMessage != null)
             _StatusBanner(
               message: _errorMessage!,
+              icon: Icons.error_outline,
+              iconColor: AppColors.danger,
               actionLabel: 'Retry',
               onPressed: _loadMapData,
             )
@@ -392,6 +418,95 @@ class _MapScreenState extends State<MapScreen> {
             const _StatusBanner(
               message: 'No nearby sightings found',
             ),
+
+          // ── Legend ───────────────────────────────────────────────────────────
+          if (!_isLoading)
+            const Align(
+              alignment: Alignment.bottomLeft,
+              child: _MapLegend(),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Legend ──────────────────────────────────────────────────────────────────
+
+class _MapLegend extends StatelessWidget {
+  const _MapLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        boxShadow: const <BoxShadow>[
+          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Text(
+            'LEGEND',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  letterSpacing: 0.6,
+                ),
+          ),
+          const SizedBox(height: 6),
+          _LegendRow(color: Colors.red, label: 'Leopard sighting'),
+          _LegendRow(color: Colors.green, label: 'Your recent report'),
+          _LegendRow(color: Colors.blue, label: 'Your location'),
+          _LegendRow(
+            color: AppColors.danger,
+            label: 'Alert radius',
+            isRing: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegendRow extends StatelessWidget {
+  const _LegendRow({
+    required this.color,
+    required this.label,
+    this.isRing = false,
+  });
+
+  final Color color;
+  final String label;
+  final bool isRing;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Container(
+            width: 14,
+            height: 14,
+            decoration: BoxDecoration(
+              color: isRing ? color.withValues(alpha: 0.12) : color,
+              shape: isRing ? BoxShape.rectangle : BoxShape.circle,
+              borderRadius: isRing ? BorderRadius.circular(3) : null,
+              border: isRing ? Border.all(color: color, width: 1.5) : null,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
         ],
       ),
     );
@@ -405,41 +520,50 @@ class _StatusBanner extends StatelessWidget {
     required this.message,
     this.actionLabel,
     this.onPressed,
+    this.icon = Icons.info_outline,
+    this.iconColor = AppColors.amber,
   });
 
   final String message;
   final String? actionLabel;
   final VoidCallback? onPressed;
+  final IconData icon;
+  final Color iconColor;
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        margin: const EdgeInsets.all(12),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          boxShadow: const <BoxShadow>[
-            BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: <Widget>[
-            const Icon(Icons.info_outline, size: 18, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(child: Text(message)),
-            if (actionLabel != null && onPressed != null)
-              TextButton(
-                onPressed: onPressed,
-                child: Text(actionLabel!),
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Container(
+          margin: const EdgeInsets.all(AppSpacing.md),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppRadius.md),
+            boxShadow: const <BoxShadow>[
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 8,
+                offset: Offset(0, 2),
               ),
-          ],
+            ],
+          ),
+          child: Row(
+            children: <Widget>[
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: AppSpacing.sm),
+              Flexible(child: Text(message)),
+              if (actionLabel != null && onPressed != null)
+                TextButton(
+                  onPressed: onPressed,
+                  child: Text(actionLabel!),
+                ),
+            ],
+          ),
         ),
       ),
     );

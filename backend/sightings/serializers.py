@@ -16,10 +16,9 @@ class LeopardSightingSerializer(serializers.ModelSerializer):
             'location_name',
             'image',
             'created_at',
-            'status',
             'is_mine',
         ]
-        read_only_fields = ['id', 'created_at', 'status', 'is_mine']
+        read_only_fields = ['id', 'created_at', 'is_mine']
 
     def get_is_mine(self, obj):
         request = self.context.get('request')

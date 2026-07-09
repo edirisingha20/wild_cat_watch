@@ -340,3 +340,110 @@ class UserProfileApiTests(APITestCase):
         response = self.client.get('/api/users/me/')
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+
+class AdminUserManagementTests(APITestCase):
+    def setUp(self):
+        self.admin = User.objects.create_user(
+            username='app_admin',
+            email='app_admin@example.com',
+            password='Pass1234!',
+            role=User.ROLE_ADMIN,
+        )
+        self.normal_user = User.objects.create_user(
+            username='normal_user',
+            email='normal_user@example.com',
+            password='Pass1234!',
+        )
+
+    def test_normal_user_cannot_access_admin_endpoints(self):
+        self.client.force_authenticate(user=self.normal_user)
+
+        response = self.client.get('/api/users/admin/users/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+        response = self.client.delete(f'/api/users/admin/users/{self.admin.id}/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_unauthenticated_cannot_access_admin_endpoints(self):
+        response = self.client.get('/api/users/admin/users/')
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_admin_can_list_users(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get('/api/users/admin/users/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        usernames = [u['username'] for u in response.data]
+        self.assertIn('app_admin', usernames)
+        self.assertIn('normal_user', usernames)
+
+    def test_admin_can_modify_user(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.patch(
+            f'/api/users/admin/users/{self.normal_user.id}/',
+            {'role': User.ROLE_ADMIN, 'is_active': False, 'full_name': 'Renamed'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.normal_user.refresh_from_db()
+        self.assertEqual(self.normal_user.role, User.ROLE_ADMIN)
+        self.assertFalse(self.normal_user.is_active)
+        self.assertEqual(self.normal_user.full_name, 'Renamed')
+
+    def test_admin_can_delete_user(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.delete(f'/api/users/admin/users/{self.normal_user.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(User.objects.filter(pk=self.normal_user.pk).exists())
+
+    def test_admin_cannot_delete_self(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.delete(f'/api/users/admin/users/{self.admin.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertTrue(User.objects.filter(pk=self.admin.pk).exists())
+
+    def test_admin_cannot_demote_or_deactivate_self(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.patch(
+            f'/api/users/admin/users/{self.admin.id}/',
+            {'role': User.ROLE_USER},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+        response = self.client.patch(
+            f'/api/users/admin/users/{self.admin.id}/',
+            {'is_active': False},
+            format='json',
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_app_admin_cannot_manage_superuser(self):
+        superuser = User.objects.create_superuser(
+            username='root_admin',
+            email='root_admin@example.com',
+            password='Pass1234!',
+        )
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.delete(f'/api/users/admin/users/{superuser.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertTrue(User.objects.filter(pk=superuser.pk).exists())
+
+    def test_profile_includes_role(self):
+        self.client.force_authenticate(user=self.admin)
+
+        response = self.client.get('/api/users/me/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['role'], User.ROLE_ADMIN)

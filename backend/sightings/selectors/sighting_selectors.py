@@ -9,16 +9,12 @@ def get_all_sightings():
     return LeopardSighting.objects.all()
 
 
-def get_verified_sightings():
-    return get_all_sightings().filter(status=LeopardSighting.STATUS_VERIFIED)
-
-
 def get_recent_sightings():
-    return get_verified_sightings().order_by('-created_at')
+    return get_all_sightings().order_by('-created_at')
 
 
 def get_sightings_for_user(user):
-    """All sightings reported by a user (any status), newest first."""
+    """All sightings reported by a user, newest first."""
     return get_all_sightings().filter(user=user).order_by('-created_at')
 
 
@@ -37,7 +33,7 @@ def _bounding_box(latitude, longitude, radius_km):
 def get_nearby_sightings(latitude, longitude, radius_km):
     min_lat, max_lat, min_lng, max_lng = _bounding_box(latitude, longitude, radius_km)
 
-    candidates = get_verified_sightings().filter(
+    candidates = get_all_sightings().filter(
         latitude__gte=min_lat,
         latitude__lte=max_lat,
         longitude__gte=min_lng,

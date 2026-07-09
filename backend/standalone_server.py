@@ -85,6 +85,7 @@ def create_default_admin() -> None:
         username=DEFAULT_ADMIN_USERNAME,
         email=DEFAULT_ADMIN_EMAIL,
         password=DEFAULT_ADMIN_PASSWORD,
+        role='admin',  # grants the in-app admin panel too
     )
     print(f'  Created admin account: {DEFAULT_ADMIN_USERNAME} / {DEFAULT_ADMIN_PASSWORD}')
 

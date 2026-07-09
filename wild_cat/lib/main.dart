@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import 'config/backend_resolver.dart';
 import 'core/notification_router.dart';
+import 'core/theme/app_theme.dart';
 import 'features/auth/auth_provider.dart';
 import 'features/auth/splash_screen.dart';
 import 'firebase_options.dart';
@@ -132,15 +133,8 @@ class WildCatWatchApp extends StatelessWidget {
         navigatorKey: rootNavigatorKey,
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         debugShowCheckedModeBanner: false,
-        title: 'Wild Cat Watch',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF2E7D32),
-            brightness: Brightness.light,
-          ),
-          scaffoldBackgroundColor: Colors.white,
-        ),
+        title: 'Leopard Sightings',
+        theme: AppTheme.light,
         home: const SplashScreen(),
       ),
     );

@@ -26,8 +26,10 @@ double-click one file.
   - **username:** `admin`
   - **password:** `wildcat123`
 
-Log in at `http://localhost:8000/admin/` to review and **verify** reported
-sightings — verifying a sighting is what sends the push alert to nearby users.
+Reported sightings go live immediately and push alerts are sent to nearby
+users right away — no manual verification step. Log in at
+`http://localhost:8000/admin/` to review or delete sightings and to manage
+user accounts (create, edit, deactivate, delete).
 
 > Change the default password after first login (Admin → Users → admin).
 

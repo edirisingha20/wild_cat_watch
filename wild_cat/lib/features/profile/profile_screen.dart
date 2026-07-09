@@ -2,10 +2,18 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/widgets/app_avatar.dart';
+import '../../core/widgets/info_tile.dart';
+import '../../core/widgets/section_title.dart';
+import '../../core/widgets/sighting_thumbnail.dart';
+import '../../core/widgets/status_views.dart';
 import '../../services/api_service.dart';
 import '../../services/organization_service.dart';
 import '../../services/profile_service.dart';
 import '../../services/sightings_service.dart';
+import '../admin/admin_screen.dart';
 import '../auth/auth_provider.dart';
 import '../auth/login_screen.dart';
 import '../sightings/models/alert_model.dart';
@@ -59,30 +67,184 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Widget _buildRadiusCard(UserProfile profile) {
-    final double radius = _radiusKm ??= profile.sightingRadiusKm;
+  Widget _buildProfileHeader(UserProfile profile) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.lg,
+        AppSpacing.xl,
+      ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: <Color>[AppColors.forestGreen, AppColors.forestGreenDark],
+        ),
+        borderRadius: BorderRadius.vertical(
+          bottom: Radius.circular(AppRadius.xl),
+        ),
+      ),
+      child: Column(
+        children: <Widget>[
+          AppAvatar(name: profile.fullName, radius: 40),
+          AppSpacing.gapMd,
+          Text(
+            profile.fullName,
+            textAlign: TextAlign.center,
+            style: text.titleLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            profile.position?.name ?? 'Officer',
+            style: text.bodyMedium?.copyWith(color: Colors.white70),
+          ),
+          if (profile.department != null) ...<Widget>[
+            AppSpacing.gapMd,
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md,
+                vertical: 6,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(AppRadius.pill),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  const Icon(Icons.apartment_outlined,
+                      size: 15, color: Colors.white70),
+                  const SizedBox(width: 6),
+                  Text(
+                    profile.department!.name,
+                    style: text.labelMedium?.copyWith(color: Colors.white),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInfoCard(UserProfile profile) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
+        child: Column(
+          children: <Widget>[
+            InfoTile(
+              icon: Icons.alternate_email,
+              label: 'Username',
+              value: profile.username,
+            ),
+            const Divider(height: 1),
+            InfoTile(
+              icon: Icons.email_outlined,
+              label: 'Email',
+              value: profile.email,
+            ),
+            const Divider(height: 1),
+            InfoTile(
+              icon: Icons.cake_outlined,
+              label: 'Birthday',
+              value: profile.birthday ?? '—',
+            ),
+            const Divider(height: 1),
+            InfoTile(
+              icon: Icons.military_tech_outlined,
+              label: 'Position',
+              value: profile.position?.name ?? '—',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminCard(UserProfile profile) {
+    return Card(
+      color: AppColors.amberLight,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        side: BorderSide(color: AppColors.amber.withValues(alpha: 0.4)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.lg,
+          vertical: AppSpacing.xs,
+        ),
+        leading: CircleAvatar(
+          backgroundColor: AppColors.amber.withValues(alpha: 0.2),
+          child: const Icon(Icons.admin_panel_settings,
+              color: Color(0xFFB26A00)),
+        ),
+        title: const Text(
+          'Admin Panel',
+          style: TextStyle(fontWeight: FontWeight.w700),
+        ),
+        subtitle: const Text('Manage users and reported sightings'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => AdminScreen(currentUserId: profile.id),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRadiusCard(UserProfile profile) {
+    final double radius = _radiusKm ??= profile.sightingRadiusKm;
+    final TextTheme text = Theme.of(context).textTheme;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Icon(Icons.my_location, size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
+                const Icon(Icons.my_location,
+                    size: 20, color: AppColors.forestGreen),
+                const SizedBox(width: AppSpacing.sm),
+                Expanded(
                   child: Text(
-                    'Alert radius',
-                    style: TextStyle(fontWeight: FontWeight.bold),
+                    'Alert Radius',
+                    style:
+                        text.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                   ),
                 ),
-                Text('${radius.round()} km'),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.md,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.oliveLight,
+                    borderRadius: BorderRadius.circular(AppRadius.pill),
+                  ),
+                  child: Text(
+                    '${radius.round()} km',
+                    style: text.labelLarge?.copyWith(
+                      color: AppColors.forestGreen,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ],
             ),
-            const Text(
+            AppSpacing.gapXs,
+            Text(
               'You only see sightings and receive alerts within this distance.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
+              style: text.bodySmall?.copyWith(color: AppColors.textSecondary),
             ),
             Slider(
               value: radius.clamp(1, 50),
@@ -105,29 +267,54 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        const Text(
-          'My Reported Sightings',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+        const SectionTitle(
+          title: 'My Reported Sightings',
+          icon: Icons.assignment_outlined,
         ),
-        const SizedBox(height: 8),
+        AppSpacing.gapMd,
         FutureBuilder<List<Alert>>(
           future: _mySightingsFuture,
           builder: (BuildContext context, AsyncSnapshot<List<Alert>> snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
-                padding: EdgeInsets.all(16),
+                padding: EdgeInsets.all(AppSpacing.lg),
                 child: Center(child: CircularProgressIndicator()),
               );
             }
             if (snapshot.hasError) {
-              return const Text('Failed to load your sightings.');
+              return Text(
+                'Failed to load your sightings.',
+                style: TextStyle(color: AppColors.textSecondary),
+              );
             }
             final List<Alert> sightings = snapshot.data ?? <Alert>[];
             if (sightings.isEmpty) {
-              return const Text("You haven't reported any sightings yet.");
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(AppSpacing.lg),
+                  child: Row(
+                    children: <Widget>[
+                      const Icon(Icons.info_outline,
+                          color: AppColors.textSecondary),
+                      const SizedBox(width: AppSpacing.md),
+                      Expanded(
+                        child: Text(
+                          "You haven't reported any sightings yet.",
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
             }
             return Column(
-              children: sightings.map(_sightingTile).toList(),
+              children: <Widget>[
+                for (final Alert alert in sightings) ...<Widget>[
+                  _sightingTile(alert),
+                  AppSpacing.gapSm,
+                ],
+              ],
             );
           },
         ),
@@ -136,30 +323,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _sightingTile(Alert alert) {
-    final bool verified = alert.isVerified;
     final String date = alert.createdAt.toLocal().toString().split('.').first;
     return Card(
       child: ListTile(
-        leading: alert.image != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(6),
-                child: Image.network(
-                  alert.image!,
-                  width: 48,
-                  height: 48,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(Icons.image_not_supported),
-                ),
-              )
-            : const Icon(Icons.pets),
-        title: Text(alert.locationName),
-        subtitle: Text(date),
-        trailing: Chip(
-          label: Text(verified ? 'Verified' : 'Pending'),
-          backgroundColor:
-              verified ? Colors.green.shade100 : Colors.orange.shade100,
-          visualDensity: VisualDensity.compact,
+        contentPadding: const EdgeInsets.all(AppSpacing.sm),
+        leading: SightingThumbnail(imageUrl: alert.image, width: 52, height: 52),
+        title: Text(
+          alert.locationName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
+        subtitle: Text(date),
       ),
     );
   }
@@ -443,26 +617,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
         future: _profileFuture,
         builder: (BuildContext context, AsyncSnapshot<UserProfile> snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const LoadingView();
           }
 
           if (snapshot.hasError || !snapshot.hasData) {
-            return Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  const Text('Failed to load profile'),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _profileFuture = _profileService.getProfile();
-                      });
-                    },
-                    child: const Text('Retry'),
-                  ),
-                ],
-              ),
+            return ErrorStateView(
+              message: 'Failed to load profile',
+              onRetry: () {
+                setState(() {
+                  _profileFuture = _profileService.getProfile();
+                });
+              },
             );
           }
 
@@ -471,45 +636,55 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return Consumer<AuthProvider>(
             builder: (BuildContext context, AuthProvider authProvider, Widget? _) {
               return ListView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.zero,
                 children: <Widget>[
-                  Text('Full Name: ${profile.fullName}'),
-                  const SizedBox(height: 8),
-                  Text('Username: ${profile.username}'),
-                  const SizedBox(height: 8),
-                  Text('Email: ${profile.email}'),
-                  const SizedBox(height: 8),
-                  Text('Birthday: ${profile.birthday ?? '-'}'),
-                  const SizedBox(height: 8),
-                  Text('Department: ${profile.department?.name ?? '-'}'),
-                  const SizedBox(height: 8),
-                  Text('Position: ${profile.position?.name ?? '-'}'),
-                  const SizedBox(height: 16),
-                  _buildRadiusCard(profile),
-                  const SizedBox(height: 16),
-                  _buildMySightings(),
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: () => _showEditDialog(profile),
-                    child: const Text('Edit Profile'),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () async {
-                      await authProvider.logout();
-
-                      if (!context.mounted) {
-                        return;
-                      }
-
-                      Navigator.of(context).pushAndRemoveUntil(
-                        MaterialPageRoute<void>(
-                          builder: (_) => const LoginScreen(),
+                  _buildProfileHeader(profile),
+                  Padding(
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: <Widget>[
+                        if (profile.isAdmin) ...<Widget>[
+                          _buildAdminCard(profile),
+                          AppSpacing.gapLg,
+                        ],
+                        _buildInfoCard(profile),
+                        AppSpacing.gapLg,
+                        _buildRadiusCard(profile),
+                        AppSpacing.gapLg,
+                        _buildMySightings(),
+                        AppSpacing.gapLg,
+                        OutlinedButton.icon(
+                          onPressed: () => _showEditDialog(profile),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Edit Profile'),
                         ),
-                        (Route<dynamic> route) => false,
-                      );
-                    },
-                    child: const Text('Logout'),
+                        AppSpacing.gapMd,
+                        ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.dangerLight,
+                            foregroundColor: AppColors.danger,
+                          ),
+                          onPressed: () async {
+                            await authProvider.logout();
+
+                            if (!context.mounted) {
+                              return;
+                            }
+
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute<void>(
+                                builder: (_) => const LoginScreen(),
+                              ),
+                              (Route<dynamic> route) => false,
+                            );
+                          },
+                          icon: const Icon(Icons.logout),
+                          label: const Text('Logout'),
+                        ),
+                        const SizedBox(height: AppSpacing.xl),
+                      ],
+                    ),
                   ),
                 ],
               );

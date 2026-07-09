@@ -206,13 +206,6 @@ NEARBY_SIGHTING_RADIUS_KM = float(os.getenv('NEARBY_SIGHTING_RADIUS_KM', '5'))
 # the app also refreshes location periodically while open.
 USER_LOCATION_MAX_AGE_MINUTES = int(os.getenv('USER_LOCATION_MAX_AGE_MINUTES', '120'))
 
-# Auto-verify newly reported sightings so nearby users are alerted in real time.
-# The reporters are authorized officers, so manual moderation is optional. Set to
-# False to require an admin to verify sightings before alerts are sent.
-AUTO_VERIFY_SIGHTINGS = os.getenv('AUTO_VERIFY_SIGHTINGS', 'True').strip().lower() in (
-    '1', 'true', 'yes', 'on',
-)
-
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^http://localhost(:\d+)?$',
     r'^http://127\.0\.0\.1(:\d+)?$',

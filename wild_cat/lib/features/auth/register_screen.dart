@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/app_spacing.dart';
+import '../../core/widgets/form_section_card.dart';
 import '../../services/organization_service.dart';
 import '../profile/models/lookup_option.dart';
 import 'auth_provider.dart';
@@ -30,6 +33,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _loadingDepartments = true;
   bool _loadingPositions = false;
   String? _lookupError;
+  bool _obscurePassword = true;
+  bool _obscureConfirm = true;
 
   @override
   void initState() {
@@ -50,7 +55,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   Future<void> _loadDepartments() async {
     try {
-      final List<LookupOption> departments = await _organizationService.getDepartments();
+      final List<LookupOption> departments =
+          await _organizationService.getDepartments();
       if (!mounted) {
         return;
       }
@@ -105,6 +111,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   Future<void> _register() async {
+    FocusScope.of(context).unfocus();
     if (!_formKey.currentState!.validate()) {
       return;
     }
@@ -133,9 +140,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
+        backgroundColor: success ? AppColors.success : AppColors.danger,
         content: Text(
           success
-              ? 'Registration successful. Please login.'
+              ? 'Registration successful. Please sign in.'
               : (authProvider.errorMessage ?? 'Registration failed'),
         ),
       ),
@@ -149,149 +157,256 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: const Text('Create Account')),
       body: Consumer<AuthProvider>(
-        builder: (BuildContext context, AuthProvider authProvider, Widget? _) {
+        builder: (BuildContext context, AuthProvider authProvider, _) {
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  TextFormField(
-                    controller: _fullNameController,
-                    decoration: const InputDecoration(labelText: 'Full Name'),
-                    validator: _requiredValidator('Please enter full name'),
-                  ),
-                  TextFormField(
-                    controller: _emailController,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    keyboardType: TextInputType.emailAddress,
-                    validator: _requiredValidator('Please enter email'),
-                  ),
-                  TextFormField(
-                    controller: _usernameController,
-                    decoration: const InputDecoration(labelText: 'Username'),
-                    validator: _requiredValidator('Please enter username'),
-                  ),
-                  TextFormField(
-                    controller: _birthdayController,
-                    decoration: const InputDecoration(labelText: 'Birthday'),
-                    readOnly: true,
-                    onTap: () async {
-                      final DateTime? selectedDate = await showDatePicker(
-                        context: context,
-                        firstDate: DateTime(1900),
-                        lastDate: DateTime.now(),
-                        initialDate: DateTime(2000),
-                      );
-
-                      if (selectedDate != null) {
-                        _birthdayController.text =
-                            selectedDate.toIso8601String().split('T').first;
-                      }
-                    },
-                    validator: _requiredValidator('Please select birthday'),
-                  ),
-                  const SizedBox(height: 16),
-                  if (_loadingDepartments)
-                    const LinearProgressIndicator()
-                  else ...<Widget>[
-                    DropdownButtonFormField<int>(
-                      initialValue: _selectedDepartmentId,
-                      decoration: const InputDecoration(labelText: 'Department'),
-                      items: _departments
-                          .map(
-                            (LookupOption department) => DropdownMenuItem<int>(
-                              value: department.id,
-                              child: Text(department.name),
+            padding: const EdgeInsets.all(AppSpacing.lg),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 560),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: <Widget>[
+                      // ── Personal Information ─────────────────────────────
+                      FormSectionCard(
+                        title: 'Personal Information',
+                        subtitle: 'Tell us who you are',
+                        icon: Icons.badge_outlined,
+                        children: <Widget>[
+                          TextFormField(
+                            controller: _fullNameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Full Name',
+                              prefixIcon: Icon(Icons.person_outline),
                             ),
-                          )
-                          .toList(),
-                      onChanged: authProvider.isLoading
-                          ? null
-                          : (int? value) => _handleDepartmentChanged(value),
-                      validator: (int? value) {
-                        if (value == null) {
-                          return 'Please select department';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 12),
-                    if (_loadingPositions)
-                      const LinearProgressIndicator()
-                    else
-                      DropdownButtonFormField<int>(
-                        initialValue: _selectedPositionId,
-                        decoration: const InputDecoration(labelText: 'Position'),
-                        items: _positions
-                            .map(
-                              (LookupOption position) => DropdownMenuItem<int>(
-                                value: position.id,
-                                child: Text(position.name),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: _selectedDepartmentId == null || authProvider.isLoading
-                            ? null
-                            : (int? value) {
-                                setState(() {
-                                  _selectedPositionId = value;
-                                });
-                              },
-                        validator: (int? value) {
-                          if (value == null) {
-                            return 'Please select position';
-                          }
-                          return null;
-                        },
+                            validator:
+                                _requiredValidator('Please enter full name'),
+                          ),
+                          AppSpacing.gapLg,
+                          TextFormField(
+                            controller: _birthdayController,
+                            readOnly: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Birthday',
+                              prefixIcon: Icon(Icons.cake_outlined),
+                              suffixIcon: Icon(Icons.calendar_today_outlined),
+                            ),
+                            onTap: _pickBirthday,
+                            validator:
+                                _requiredValidator('Please select birthday'),
+                          ),
+                        ],
                       ),
-                  ],
-                  if (_lookupError != null) ...<Widget>[
-                    const SizedBox(height: 8),
-                    Text(
-                      _lookupError!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _passwordController,
-                    decoration: const InputDecoration(labelText: 'Password'),
-                    obscureText: true,
-                    validator: _requiredValidator('Please enter password'),
+                      AppSpacing.gapLg,
+
+                      // ── Professional Information ─────────────────────────
+                      FormSectionCard(
+                        title: 'Professional Information',
+                        subtitle: 'Your department and role',
+                        icon: Icons.work_outline,
+                        children: <Widget>[
+                          if (_loadingDepartments)
+                            const LinearProgressIndicator()
+                          else ...<Widget>[
+                            DropdownButtonFormField<int>(
+                              initialValue: _selectedDepartmentId,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                labelText: 'Department',
+                                prefixIcon: Icon(Icons.apartment_outlined),
+                              ),
+                              items: _departments
+                                  .map(
+                                    (LookupOption department) =>
+                                        DropdownMenuItem<int>(
+                                      value: department.id,
+                                      child: Text(department.name),
+                                    ),
+                                  )
+                                  .toList(),
+                              onChanged: authProvider.isLoading
+                                  ? null
+                                  : (int? value) =>
+                                      _handleDepartmentChanged(value),
+                              validator: (int? value) {
+                                if (value == null) {
+                                  return 'Please select department';
+                                }
+                                return null;
+                              },
+                            ),
+                            AppSpacing.gapLg,
+                            if (_loadingPositions)
+                              const LinearProgressIndicator()
+                            else
+                              DropdownButtonFormField<int>(
+                                initialValue: _selectedPositionId,
+                                isExpanded: true,
+                                decoration: const InputDecoration(
+                                  labelText: 'Position',
+                                  prefixIcon: Icon(Icons.military_tech_outlined),
+                                ),
+                                items: _positions
+                                    .map(
+                                      (LookupOption position) =>
+                                          DropdownMenuItem<int>(
+                                        value: position.id,
+                                        child: Text(position.name),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: _selectedDepartmentId == null ||
+                                        authProvider.isLoading
+                                    ? null
+                                    : (int? value) {
+                                        setState(() {
+                                          _selectedPositionId = value;
+                                        });
+                                      },
+                                validator: (int? value) {
+                                  if (value == null) {
+                                    return 'Please select position';
+                                  }
+                                  return null;
+                                },
+                              ),
+                          ],
+                          if (_lookupError != null) ...<Widget>[
+                            AppSpacing.gapSm,
+                            Text(
+                              _lookupError!,
+                              style: const TextStyle(color: AppColors.danger),
+                            ),
+                          ],
+                        ],
+                      ),
+                      AppSpacing.gapLg,
+
+                      // ── Account Information ──────────────────────────────
+                      FormSectionCard(
+                        title: 'Account Information',
+                        subtitle: 'Credentials used to sign in',
+                        icon: Icons.lock_outline,
+                        children: <Widget>[
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            validator: _requiredValidator('Please enter email'),
+                          ),
+                          AppSpacing.gapLg,
+                          TextFormField(
+                            controller: _usernameController,
+                            textInputAction: TextInputAction.next,
+                            decoration: const InputDecoration(
+                              labelText: 'Username',
+                              prefixIcon: Icon(Icons.alternate_email),
+                            ),
+                            validator:
+                                _requiredValidator('Please enter username'),
+                          ),
+                          AppSpacing.gapLg,
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            decoration: InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: () => setState(() =>
+                                    _obscurePassword = !_obscurePassword),
+                              ),
+                            ),
+                            validator:
+                                _requiredValidator('Please enter password'),
+                          ),
+                          AppSpacing.gapLg,
+                          TextFormField(
+                            controller: _confirmPasswordController,
+                            obscureText: _obscureConfirm,
+                            decoration: InputDecoration(
+                              labelText: 'Confirm Password',
+                              prefixIcon: const Icon(Icons.lock_outline),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscureConfirm
+                                      ? Icons.visibility_outlined
+                                      : Icons.visibility_off_outlined,
+                                ),
+                                onPressed: () => setState(
+                                    () => _obscureConfirm = !_obscureConfirm),
+                              ),
+                            ),
+                            validator: (String? value) {
+                              if (value == null || value.isEmpty) {
+                                return 'Please confirm password';
+                              }
+                              if (value != _passwordController.text) {
+                                return 'Passwords do not match';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.xl),
+                      ElevatedButton(
+                        onPressed:
+                            authProvider.isLoading || _loadingDepartments
+                                ? null
+                                : _register,
+                        child: authProvider.isLoading
+                            ? const SizedBox(
+                                width: 22,
+                                height: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.5,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white),
+                                ),
+                              )
+                            : const Text('Create Account'),
+                      ),
+                      AppSpacing.gapSm,
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Already have an account? Sign in'),
+                      ),
+                    ],
                   ),
-                  TextFormField(
-                    controller: _confirmPasswordController,
-                    decoration: const InputDecoration(labelText: 'Confirm Password'),
-                    obscureText: true,
-                    validator: (String? value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please confirm password';
-                      }
-                      if (value != _passwordController.text) {
-                        return 'Passwords do not match';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 24),
-                  if (authProvider.isLoading)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    ElevatedButton(
-                      onPressed: _loadingDepartments || _loadingPositions ? null : _register,
-                      child: const Text('Register'),
-                    ),
-                ],
+                ),
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  Future<void> _pickBirthday() async {
+    final DateTime? selectedDate = await showDatePicker(
+      context: context,
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now(),
+      initialDate: DateTime(2000),
+    );
+
+    if (selectedDate != null) {
+      _birthdayController.text = selectedDate.toIso8601String().split('T').first;
+    }
   }
 
   FormFieldValidator<String> _requiredValidator(String message) {

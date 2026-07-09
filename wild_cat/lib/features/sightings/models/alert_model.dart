@@ -7,7 +7,6 @@ class Alert {
     required this.longitude,
     required this.image,
     required this.createdAt,
-    this.status,
     this.isMine = false,
   });
 
@@ -19,14 +18,8 @@ class Alert {
   final String? image;
   final DateTime createdAt;
 
-  /// 'pending' or 'verified' (null for anonymous/approximate responses).
-  final String? status;
-
   /// True when the sighting was reported by the current user.
   final bool isMine;
-
-  bool get isVerified => status == 'verified';
-  bool get isPending => status == 'pending';
 
   /// Reported by the current user within the last 7 days.
   bool get isRecentlyMine =>
@@ -41,7 +34,6 @@ class Alert {
       longitude: (json['longitude'] as num).toDouble(),
       image: json['image'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),
-      status: json['status'] as String?,
       isMine: json['is_mine'] as bool? ?? false,
     );
   }
